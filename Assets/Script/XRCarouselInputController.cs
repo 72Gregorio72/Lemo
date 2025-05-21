@@ -9,6 +9,7 @@ using System.Globalization;
 using System;
 using UnityEngine.Networking;
 using System.Collections;
+
 namespace HKCarouselLayoutGroup
 {
     public class XRCarouselInputController : MonoBehaviour
@@ -47,6 +48,9 @@ namespace HKCarouselLayoutGroup
         [Header("Rating System")]
         [SerializeField] private GameObject ratingPrefab;
         [SerializeField] private Transform ratingParent; // optional: canvas or world-space anchor
+        [SerializeField] private Transform xrOrigin; // Reference to XR Origin transform
+        [SerializeField] private float ratingPopupDistance = 2f; // Distance in meters from XR Origin
+        [SerializeField] private float ratingPopupHeight = 0f; // Vertical offset from camera forward
 
         private bool isRatingPending = false;
         private GameObject activeRatingInstance;
@@ -54,6 +58,36 @@ namespace HKCarouselLayoutGroup
         private HKCarouselElementData pendingElementData = null;
 
         private Texture2D blackTexture;
+
+        // Add new field to track if carousel is interactive
+        private bool isCarouselInteractive = true;
+
+        private string RatingFilePath => 
+#if UNITY_EDITOR
+            "Rating/Rating";  // Resources path for editor
+#else
+            Path.Combine(Application.persistentDataPath, "Rating.json");  // File path for builds
+#endif
+
+        [System.Serializable]
+        public class RatingDataWrapper
+        {
+            public List<RatingEntry> entries = new List<RatingEntry>();
+        }
+
+        [System.Serializable]
+        public class RatingEntry
+        {
+            public string key;
+            public RatingData value;
+        }
+
+        [System.Serializable]
+        public class RatingData
+        {
+            public float average;
+            public int count;
+        }
 
         void Start()
         {
@@ -63,6 +97,150 @@ namespace HKCarouselLayoutGroup
             blackTexture = new Texture2D(1, 1);
             blackTexture.SetPixel(0, 0, Color.black);
             blackTexture.Apply();
+
+            // Set initial state of sphere material to have no texture
+            if (sphereMaterial != null)
+            {
+                sphereMaterial.SetTexture("_MainTex", null);
+            }
+
+            // Initialize rating system
+            InitializeRatingSystem();
+        }
+
+        private void InitializeRatingSystem()
+        {
+#if !UNITY_EDITOR
+            // In builds, check if we need to copy the initial rating file
+            if (!File.Exists(RatingFilePath))
+            {
+                CopyInitialRatingFile();
+            }
+#endif
+        }
+
+        private void CopyInitialRatingFile()
+        {
+            try
+            {
+                // Load the initial rating data from Resources
+                TextAsset ratingJson = Resources.Load<TextAsset>("Rating/Rating");
+                if (ratingJson != null)
+                {
+                    // Ensure directory exists
+                    string directory = Path.GetDirectoryName(RatingFilePath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    // Write the initial rating data to persistent path
+                    File.WriteAllText(RatingFilePath, ratingJson.text);
+                    Debug.Log($"[Rating] Initial rating file created at: {RatingFilePath}");
+                }
+                else
+                {
+                    Debug.LogWarning("[Rating] No initial rating file found in Resources.");
+                    // Create empty rating file
+                    SaveRatingData(new Dictionary<string, RatingData>());
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Rating] Failed to copy initial rating file: {e.Message}");
+                // Create empty rating file as fallback
+                SaveRatingData(new Dictionary<string, RatingData>());
+            }
+        }
+
+        public Dictionary<string, RatingData> LoadRatingData()
+        {
+#if UNITY_EDITOR
+            // In editor, load from Resources
+            TextAsset ratingJson = Resources.Load<TextAsset>("Rating/Rating");
+            if (ratingJson == null)
+            {
+                Debug.LogWarning("[Rating] No rating file found in Resources.");
+                return new Dictionary<string, RatingData>();
+            }
+            var wrapper = JsonUtility.FromJson<RatingDataWrapper>(ratingJson.text);
+            return ConvertFromWrapper(wrapper);
+#else
+            // In builds, load from persistent data path
+            if (!File.Exists(RatingFilePath))
+            {
+                Debug.LogWarning($"[Rating] No rating file found at: {RatingFilePath}");
+                return new Dictionary<string, RatingData>();
+            }
+            string json = File.ReadAllText(RatingFilePath);
+            var wrapper = JsonUtility.FromJson<RatingDataWrapper>(json);
+            return ConvertFromWrapper(wrapper);
+#endif
+        }
+
+        private Dictionary<string, RatingData> ConvertFromWrapper(RatingDataWrapper wrapper)
+        {
+            var dict = new Dictionary<string, RatingData>();
+            if (wrapper?.entries != null)
+            {
+                foreach (var entry in wrapper.entries)
+                {
+                    dict[entry.key] = entry.value;
+                }
+            }
+            return dict;
+        }
+
+        private RatingDataWrapper ConvertToWrapper(Dictionary<string, RatingData> dict)
+        {
+            var wrapper = new RatingDataWrapper();
+            foreach (var kvp in dict)
+            {
+                wrapper.entries.Add(new RatingEntry { key = kvp.Key, value = kvp.Value });
+            }
+            return wrapper;
+        }
+
+        private void SaveRatingData(Dictionary<string, RatingData> ratingData)
+        {
+            var wrapper = ConvertToWrapper(ratingData);
+            string json = JsonUtility.ToJson(wrapper, true); // true for pretty print
+
+#if UNITY_EDITOR
+            // In editor, save to Resources
+            string resourcesPath = Path.Combine(Application.dataPath, "Resources", "Rating");
+            if (!Directory.Exists(resourcesPath))
+            {
+                Directory.CreateDirectory(resourcesPath);
+            }
+            string filePath = Path.Combine(resourcesPath, "Rating.json");
+            File.WriteAllText(filePath, json);
+            Debug.Log($"[Rating] Saved rating data to Resources: {filePath}");
+#else
+            // In builds, save to persistent data path
+            File.WriteAllText(RatingFilePath, json);
+            Debug.Log($"[Rating] Saved rating data to: {RatingFilePath}");
+#endif
+        }
+
+        public void UpdateRating(string experienceName, float rating)
+        {
+            var ratingData = LoadRatingData();
+            
+            if (!ratingData.ContainsKey(experienceName))
+            {
+                ratingData[experienceName] = new RatingData { average = rating, count = 1 };
+            }
+            else
+            {
+                var current = ratingData[experienceName];
+                float totalRating = current.average * current.count;
+                current.count++;
+                current.average = (totalRating + rating) / current.count;
+                ratingData[experienceName] = current;
+            }
+
+            SaveRatingData(ratingData);
         }
 
         void OnDestroy()
@@ -75,6 +253,7 @@ namespace HKCarouselLayoutGroup
 
         void Update()
         {
+            // Remove the active check since we want to process input for both UIs
             InputDevices.GetDevices(devices);
             cooldownTimer -= Time.deltaTime;
 
@@ -114,14 +293,17 @@ namespace HKCarouselLayoutGroup
 
                     if (isTriggerHeld && !wasTriggerHeld)
                     {
-                        PlaySelectedMedia(); // ✅ NOW DEFINED
+                        PlaySelectedMedia();
                     }
 
                     previousTriggerStates[device] = isTriggerHeld;
                 }
 
-                // THUMBSTICK
-                if (carousel != null && device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
+                // THUMBSTICK - Only process if carousel is interactive and we're in 360 mode
+                GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
+                if (ui360 != null && ui360.activeInHierarchy && 
+                    isCarouselInteractive && carousel != null && 
+                    device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
                 {
                     if (cooldownTimer <= 0f)
                     {
@@ -142,57 +324,191 @@ namespace HKCarouselLayoutGroup
 
         private void PlaySelectedMedia()
         {
-            if (carousel == null || isRatingPending) return;
+            Debug.Log("PlaySelectedMedia called");
+            
+            // First check which UI is active
+            GameObject sceneUI = GameObject.FindGameObjectWithTag("SceneUI");
+            GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
 
-            int index = carousel.GetTrueSelectedIndex();
-            var elementData = carousel.GetElementDataFromIndex(index);
+            Debug.Log($"UI Status - SceneUI: {(sceneUI != null ? (sceneUI.activeInHierarchy ? "Active" : "Inactive") : "Not Found")}, " +
+                     $"360UI: {(ui360 != null ? (ui360.activeInHierarchy ? "Active" : "Inactive") : "Not Found")}");
 
-            if (elementData is not HKCarouselElementData data || string.IsNullOrEmpty(data.VideoPath))
-                return;
-
-            bool isSameMedia = data.VideoPath == currentMediaPath;
-
-            // Check if switching to different media while a previous one was already played
-            if (!isSameMedia && triggerPressCount > 1)
+            // If Scene UI is active, handle scene loading
+            if (sceneUI != null && sceneUI.activeInHierarchy)
             {
-                // Rating required before switching
-                pendingMediaPath = data.VideoPath;
-                pendingElementData = data;
-                ShowRatingPopup();
+                Debug.Log("Scene UI is active, attempting to load scene...");
+                
+                // Get the carousel directly from the SceneUI object with the correct type
+                var sceneCarousel = sceneUI.GetComponent<HKSceneCarouselLayoutGroup3D>();
+                Debug.Log($"Scene Carousel component found: {sceneCarousel != null}");
+                
+                if (sceneCarousel == null)
+                {
+                    Debug.LogError("Could not find scene carousel component on SceneUI object!");
+                    return;
+                }
+
+                int currentIndex = sceneCarousel.GetTrueSelectedIndex();
+                Debug.Log($"Current carousel index: {currentIndex}");
+                
+                var sceneData = sceneCarousel.GetElementDataFromIndex(currentIndex);
+                Debug.Log($"Scene data retrieved: {(sceneData != null ? "Yes" : "No")}");
+                
+                if (sceneData == null)
+                {
+                    Debug.LogError($"No scene data found for index: {currentIndex}");
+                    return;
+                }
+
+                Debug.Log($"Scene Data - Name: '{sceneData.sceneName}', Index: {sceneData.sceneIndex}, Description: '{sceneData.description}'");
+
+                // Try loading by name first
+                if (!string.IsNullOrEmpty(sceneData.sceneName))
+                {
+                    try
+                    {
+                        Debug.Log($"Attempting to load scene by name: {sceneData.sceneName}");
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneData.sceneName);
+                        Debug.Log($"Successfully initiated scene load by name: {sceneData.sceneName}");
+                        return;
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"Failed to load scene by name: {sceneData.sceneName}. Error: {e.Message}. Trying index instead...");
+                    }
+                }
+
+                // If name loading failed or wasn't possible, try loading by index
+                if (sceneData.sceneIndex >= 0)
+                {
+                    try
+                    {
+                        Debug.Log($"Attempting to load scene by index: {sceneData.sceneIndex}");
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneData.sceneIndex);
+                        Debug.Log($"Successfully initiated scene load by index: {sceneData.sceneIndex}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"Failed to load scene by index: {sceneData.sceneIndex}. Error: {e.Message}");
+                        Debug.LogError("Make sure the scene is added to Build Settings and the build index matches!");
+                    }
+                }
+                else
+                {
+                    Debug.LogError($"Invalid scene index: {sceneData.sceneIndex} for scene: {sceneData.sceneName}");
+                }
                 return;
             }
-
-            triggerPressCount++;
-            bool shouldFadeOut = triggerPressCount % 2 != 0;
-
-            // ✅ IMAGE CASE
-            if (data.IsImage360)
+            // If 360 UI is active, handle 360 content
+            else if (ui360 != null && ui360.activeInHierarchy)
             {
-                // Disable video player
-                GameObject playerObject = GameObject.FindGameObjectWithTag("VideoPlayer");
-                if (playerObject != null)
+                if (carousel == null || isRatingPending) return;
+
+                int index = carousel.GetTrueSelectedIndex();
+                var elementData = carousel.GetElementDataFromIndex(index);
+
+                if (elementData is not HKCarouselElementData data || string.IsNullOrEmpty(data.VideoPath))
+                    return;
+
+                bool isSameMedia = data.VideoPath == currentMediaPath;
+
+                // Check if switching to different media while a previous one was already played
+                if (!isSameMedia && triggerPressCount > 1)
                 {
-                    var videoPlayer = playerObject.GetComponent<VideoPlayer>();
-                    if (videoPlayer != null)
+                    // Rating required before switching
+                    pendingMediaPath = data.VideoPath;
+                    pendingElementData = data;
+                    ShowRatingPopup();
+                    return;
+                }
+
+                triggerPressCount++;
+                bool shouldFadeOut = triggerPressCount % 2 != 0;
+
+                // Handle 360 image
+                if (data.IsImage360)
+                {
+                    // Disable video player
+                    GameObject playerObject = GameObject.FindGameObjectWithTag("VideoPlayer");
+                    if (playerObject != null)
                     {
-                        videoPlayer.Stop();
-                        videoPlayer.enabled = false;
+                        var videoPlayer = playerObject.GetComponent<VideoPlayer>();
+                        if (videoPlayer != null)
+                        {
+                            videoPlayer.Stop();
+                            videoPlayer.enabled = false;
+                        }
                     }
+
+                    if (!isSameMedia)
+                    {
+                        currentMediaPath = data.VideoPath;
+                        triggerPressCount = 1;
+                        isAudioPaused = false;
+
+                        FadeOutCanvas();
+                        DisplayImageOnSphere(data.VideoPath);
+                        return;
+                    }
+
+                    if (shouldFadeOut)
+                    {
+                        if (audioSource != null && isAudioPaused && !string.IsNullOrEmpty(currentAudioPath))
+                        {
+                            audioSource.Play();
+                            isAudioPaused = false;
+                        }
+
+                        FadeOutCanvas();
+                    }
+                    else
+                    {
+                        if (audioSource != null && audioSource.isPlaying)
+                        {
+                            audioSource.Pause();
+                            isAudioPaused = true;
+                        }
+
+                        FadeInCanvas(false);
+                    }
+                    return;
+                }
+
+                // Handle video
+                GameObject videoObj = GameObject.FindGameObjectWithTag("VideoPlayer");
+                if (videoObj == null)
+                {
+                    Debug.LogWarning("No object tagged 'VideoPlayer' found.");
+                    return;
+                }
+
+                var vp = videoObj.GetComponent<VideoPlayer>();
+                if (vp == null)
+                {
+                    Debug.LogWarning("No VideoPlayer component found.");
+                    return;
                 }
 
                 if (!isSameMedia)
                 {
                     currentMediaPath = data.VideoPath;
                     triggerPressCount = 1;
+                    isVideoPaused = false;
                     isAudioPaused = false;
 
                     FadeOutCanvas();
-                    DisplayImageOnSphere(data.VideoPath);
+                    PlayVideo(data.VideoPath, vp);
                     return;
                 }
 
                 if (shouldFadeOut)
                 {
+                    if (isVideoPaused)
+                    {
+                        vp.Play();
+                        isVideoPaused = false;
+                    }
+
                     if (audioSource != null && isAudioPaused && !string.IsNullOrEmpty(currentAudioPath))
                     {
                         audioSource.Play();
@@ -203,102 +519,72 @@ namespace HKCarouselLayoutGroup
                 }
                 else
                 {
+                    vp.Pause();
+                    isVideoPaused = true;
+
                     if (audioSource != null && audioSource.isPlaying)
                     {
                         audioSource.Pause();
                         isAudioPaused = true;
                     }
 
-                    FadeInCanvas();
+                    FadeInCanvas(false);
                 }
-
-                return;
-            }
-
-            // ✅ VIDEO CASE
-            GameObject videoObj = GameObject.FindGameObjectWithTag("VideoPlayer");
-            if (videoObj == null)
-            {
-                Debug.LogWarning("No object tagged 'VideoPlayer' found.");
-                return;
-            }
-
-            var vp = videoObj.GetComponent<VideoPlayer>();
-            if (vp == null)
-            {
-                Debug.LogWarning("No VideoPlayer component found.");
-                return;
-            }
-
-            if (!isSameMedia)
-            {
-                currentMediaPath = data.VideoPath;
-                triggerPressCount = 1;
-                isVideoPaused = false;
-                isAudioPaused = false;
-
-                FadeOutCanvas();
-                PlayVideo(data.VideoPath, vp);
-                return;
-            }
-
-            if (shouldFadeOut)
-            {
-                if (isVideoPaused)
-                {
-                    vp.Play();
-                    isVideoPaused = false;
-                }
-
-                if (audioSource != null && isAudioPaused && !string.IsNullOrEmpty(currentAudioPath))
-                {
-                    audioSource.Play();
-                    isAudioPaused = false;
-                }
-
-                FadeOutCanvas();
-            }
-            else
-            {
-                vp.Pause();
-                isVideoPaused = true;
-
-                if (audioSource != null && audioSource.isPlaying)
-                {
-                    audioSource.Pause();
-                    isAudioPaused = true;
-                }
-
-                FadeInCanvas();
             }
         }
 
         private void ShowRatingPopup()
         {
-            if (ratingPrefab == null || ratingParent == null || isRatingPending) return;
+            if (ratingPrefab == null || isRatingPending) return;
+
+            if (xrOrigin == null)
+            {
+                Debug.LogError("[ShowRatingPopup] XR Origin reference is missing!");
+                return;
+            }
 
             isRatingPending = true;
-            activeRatingInstance = Instantiate(ratingPrefab, ratingParent);
+
+            // Find the camera (assuming it's a child of XR Origin)
+            var mainCamera = xrOrigin.GetComponentInChildren<Camera>();
+            if (mainCamera == null)
+            {
+                Debug.LogError("[ShowRatingPopup] Cannot find camera in XR Origin!");
+                return;
+            }
+
+            // Calculate spawn position
+            Vector3 forward = mainCamera.transform.forward;
+            forward.y = 0; // Zero out vertical component for consistent height
+            forward.Normalize();
+
+            // Calculate position: camera position + forward direction * distance + height offset
+            Vector3 spawnPosition = mainCamera.transform.position + forward * ratingPopupDistance;
+            spawnPosition.y += ratingPopupHeight; // Add height offset
+
+            // Instantiate the rating popup with identity rotation (0,0,0)
+            activeRatingInstance = Instantiate(ratingPrefab);
+            
+            // Set position and keep original rotation
+            activeRatingInstance.transform.position = spawnPosition;
+            activeRatingInstance.transform.rotation = Quaternion.identity;
 
             var ratingSystem = activeRatingInstance.GetComponent<RatingSystem>();
             if (ratingSystem != null)
             {
-                // Extract experience name from currentMediaPath (assumes it's from element data)
                 string experienceName = "Unknown";
                 if (!string.IsNullOrEmpty(currentMediaPath))
                 {
                     string fileName = Path.GetFileNameWithoutExtension(currentMediaPath);
-                    experienceName = fileName; // Or store and pass original elementData.Name
+                    experienceName = fileName;
                 }
 
                 ratingSystem.experienceName = experienceName;
-
                 StartCoroutine(WaitForRatingComplete(ratingSystem));
             }
 
             Debug.Log("[Rating] Rating popup shown before switching media.");
         }
-
 
         private IEnumerator WaitForRatingComplete(RatingSystem ratingSystem)
         {
@@ -344,7 +630,6 @@ namespace HKCarouselLayoutGroup
             pendingElementData = null;
         }
 
-
         private void PlayVideo(string videoPath, VideoPlayer videoPlayer)
         {
             Debug.Log($"[PlayVideo] Attempting to load video from path: {videoPath}");
@@ -360,17 +645,21 @@ namespace HKCarouselLayoutGroup
             if (videoClip == null)
             {
                 Debug.LogError($"[PlayVideo] Failed to load video from Resources: {videoPath}. Make sure the file exists in the Resources folder and is included in the build.");
+                sphereMaterial.SetTexture("_MainTex", null);
                 return;
             }
             Debug.Log($"[PlayVideo] Successfully loaded video: {videoPath}");
 
-            // Create sequence: fade out -> clear texture -> update content -> fade in -> play audio
+            // Create sequence: fade out -> clear old content -> update content -> fade in -> play audio
             sphereMaterial.DOFloat(0f, "_Visibility", half)
                 .SetEase(Ease.InOutSine)
                 .OnComplete(() =>
                 {
-                    // First set to black texture
-                    sphereMaterial.SetTexture("_MainTex", blackTexture);
+                    // Only clear texture when switching to new content
+                    if (videoPlayer.clip != videoClip)
+                    {
+                        sphereMaterial.SetTexture("_MainTex", null);
+                    }
                     
                     // Small delay before setting new video
                     DOVirtual.DelayedCall(0.05f, () => 
@@ -394,7 +683,6 @@ namespace HKCarouselLayoutGroup
                 });
         }
 
-
         private void DisplayImageOnSphere(string imagePath)
         {
             if (sphereMaterial == null)
@@ -404,6 +692,7 @@ namespace HKCarouselLayoutGroup
             }
 
             Debug.Log($"[DisplayImageOnSphere] Attempting to load image from path: {imagePath}");
+            
             // Load image from Resources
             Texture2D texture = Resources.Load<Texture2D>(imagePath);
             if (texture == null)
@@ -432,15 +721,19 @@ namespace HKCarouselLayoutGroup
             float half = fadeOutDuration / 2f;
             sphereMaterial.SetFloat("_Visibility", 1f);
 
-            // Create sequence: fade out -> clear texture -> update content -> fade in -> play audio
+            // Create sequence: fade out -> clear old content -> update content -> fade in -> play audio
             sphereMaterial.DOFloat(0f, "_Visibility", half)
                 .SetEase(Ease.InOutSine)
                 .OnComplete(() =>
                 {
-                    // First set to black texture
-                    sphereMaterial.SetTexture("_MainTex", blackTexture);
+                    // Only clear if we're switching to a new texture
+                    Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
+                    if (currentTexture != texture)
+                    {
+                        sphereMaterial.SetTexture("_MainTex", null);
+                    }
                     
-                    // Small delay before setting new texture to ensure clean transition
+                    // Small delay before setting new texture
                     DOVirtual.DelayedCall(0.05f, () => 
                     {
                         sphereMaterial.SetTexture("_MainTex", texture);
@@ -577,7 +870,6 @@ namespace HKCarouselLayoutGroup
             Debug.Log($"[Audio] Audio path stored: {currentAudioPath}");
         }
 
-
         private IEnumerator LoadAndPlayAudio(string audioPath)
         {
             if (string.IsNullOrEmpty(audioPath))
@@ -600,7 +892,6 @@ namespace HKCarouselLayoutGroup
             Debug.Log("[Audio] Now playing: " + audioPath);
         }
 
-
         private string GetCategoryFromPath(string path)
         {
             // Safely get parent folder of the file
@@ -608,12 +899,8 @@ namespace HKCarouselLayoutGroup
             return parent != null ? parent.Name : "Unknown";
         }
 
-
-
-        private void FadeOutCanvas(float durationOverride = -1f)
+        private void FadeOutCanvas()
         {
-            float duration = durationOverride > 0f ? durationOverride : fadeOutDuration;
-
             var canvasRect = carousel.GetComponent<RectTransform>();
             if (canvasRect == null) return;
 
@@ -623,28 +910,56 @@ namespace HKCarouselLayoutGroup
 
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
+            isCarouselInteractive = false; // Disable carousel interaction
 
-            canvasGroup.DOFade(0f, duration)
-                .SetEase(Ease.OutQuad)
-                .OnComplete(() => canvasRect.gameObject.SetActive(false));
+            canvasGroup.DOFade(0f, fadeOutDuration)
+                .SetEase(Ease.OutQuad);
         }
 
-        private void FadeInCanvas()
+        private void FadeInCanvas(bool clearTexture = true)
         {
             var canvasRect = carousel.GetComponent<RectTransform>();
             if (canvasRect == null) return;
+
+            // Only clear texture if explicitly requested (when switching content)
+            if (clearTexture && sphereMaterial != null)
+            {
+                sphereMaterial.SetTexture("_MainTex", null);
+            }
 
             CanvasGroup canvasGroup = canvasRect.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
                 canvasGroup = canvasRect.gameObject.AddComponent<CanvasGroup>();
 
-            canvasRect.gameObject.SetActive(true);
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
+            isCarouselInteractive = true; // Re-enable carousel interaction
 
             canvasGroup.DOFade(1f, fadeOutDuration)
                 .SetEase(Ease.OutQuad);
+        }
+
+        // Optional: Add method to visualize the spawn position in the editor
+        private void OnDrawGizmosSelected()
+        {
+            if (xrOrigin != null)
+            {
+                var mainCamera = xrOrigin.GetComponentInChildren<Camera>();
+                if (mainCamera != null)
+                {
+                    Vector3 forward = mainCamera.transform.forward;
+                    forward.y = 0;
+                    forward.Normalize();
+                    
+                    Vector3 spawnPosition = mainCamera.transform.position + forward * ratingPopupDistance;
+                    spawnPosition.y += ratingPopupHeight;
+                    
+                    Gizmos.color = Color.yellow;
+                    Gizmos.DrawWireSphere(spawnPosition, 0.2f);
+                    Gizmos.DrawLine(mainCamera.transform.position, spawnPosition);
+                }
+            }
         }
     }
 }

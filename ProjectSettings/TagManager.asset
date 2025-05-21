@@ -9,6 +9,9 @@ TagManager:
   - leftAffordance
   - VideoPlayer
   - Hand
+  - RateUs
+  - 360UI
+  - SceneUI
   layers:
   - Default
   - TransparentFX
