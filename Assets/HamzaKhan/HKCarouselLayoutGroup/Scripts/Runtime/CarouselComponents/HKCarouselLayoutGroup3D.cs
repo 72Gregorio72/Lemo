@@ -133,7 +133,8 @@ namespace HKCarouselLayoutGroup
                 var thumbnail = thumbnails.FirstOrDefault(t => t.name == name);
                 if (thumbnail != null)
                 {
-                    thumbnailPath = $"Thumbnails/{category}/{name}";
+                    // Remove .png extension if present since Resources.Load doesn't need it
+                    thumbnailPath = $"Thumbnails/{category}/{name}".Replace(".png", "");
                 }
 
                 // Store the full path including category
@@ -161,7 +162,7 @@ namespace HKCarouselLayoutGroup
                 var thumbnail = thumbnails.FirstOrDefault(t => t.name == name);
                 if (thumbnail != null)
                 {
-                    thumbnailPath = $"Thumbnails/{category}/{name}";
+                    thumbnailPath = $"Thumbnails/{category}/{name}".Replace(".png", "");
                 }
 
                 // Store the full path including category

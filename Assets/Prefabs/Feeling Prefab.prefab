@@ -91,9 +91,9 @@ MonoBehaviour:
   onHover:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2299115028799918986}
-        m_TargetAssemblyTypeName: SceneFadePostExposure, Assembly-CSharp
-        m_MethodName: HomeScene
+      - m_Target: {fileID: 8064118192611735898}
+        m_TargetAssemblyTypeName: RatingSystem, Assembly-CSharp
+        m_MethodName: Exit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -478,9 +478,9 @@ MonoBehaviour:
   onHover:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 5394339001187483055}
-        m_TargetAssemblyTypeName: SceneFadePostExposure, Assembly-CSharp
-        m_MethodName: HomeScene
+      - m_Target: {fileID: 8064118192611735898}
+        m_TargetAssemblyTypeName: RatingSystem, Assembly-CSharp
+        m_MethodName: Exit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -593,9 +593,9 @@ MonoBehaviour:
   onHover:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2264866015096391559}
-        m_TargetAssemblyTypeName: SceneFadePostExposure, Assembly-CSharp
-        m_MethodName: HomeScene
+      - m_Target: {fileID: 8064118192611735898}
+        m_TargetAssemblyTypeName: RatingSystem, Assembly-CSharp
+        m_MethodName: Exit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -706,6 +706,7 @@ GameObject:
   - component: {fileID: 275054610585844825}
   - component: {fileID: 1127377106702113580}
   - component: {fileID: 2586601593836386160}
+  - component: {fileID: 8064118192611735898}
   m_Layer: 5
   m_Name: Feeling Prefab
   m_TagString: RateUs
@@ -721,8 +722,8 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4337936954930267153}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -3.4}
-  m_LocalScale: {x: 0.01, y: 0.01, z: 0.01}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.002, y: 0.002, z: 0.002}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 8650089297024662576}
@@ -730,7 +731,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0.773}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8002590581339091015
@@ -762,7 +763,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 5
   m_TargetDisplay: 0
 --- !u!114 &1127377106702113580
 MonoBehaviour:
@@ -800,6 +801,22 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RaycastTriggerInteraction: 1
+--- !u!114 &8064118192611735898
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4337936954930267153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd3bcecc8a4411447b610608a50d66cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rateUsTag: RateUs
+  holdDuration: 5
+  exitTriggered: 0
+  experienceName: Unknown
 --- !u!1 &4961041812089928327
 GameObject:
   m_ObjectHideFlags: 0
@@ -1510,9 +1527,9 @@ MonoBehaviour:
   onHover:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 6309492752277874611}
-        m_TargetAssemblyTypeName: SceneFadePostExposure, Assembly-CSharp
-        m_MethodName: HomeScene
+      - m_Target: {fileID: 8064118192611735898}
+        m_TargetAssemblyTypeName: RatingSystem, Assembly-CSharp
+        m_MethodName: Exit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

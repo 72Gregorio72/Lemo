@@ -28,11 +28,28 @@ namespace HKCarouselLayoutGroup
 
             if (thumbnailImage != null && !string.IsNullOrEmpty(data.ThumbnailPath))
             {
-                // Load thumbnail from Resources
-                Sprite thumbnailSprite = Resources.Load<Sprite>(data.ThumbnailPath);
-                if (thumbnailSprite != null)
+                // First try loading as Texture2D
+                Texture2D thumbnailTexture = Resources.Load<Texture2D>(data.ThumbnailPath);
+                if (thumbnailTexture != null)
                 {
+                    // Convert Texture2D to Sprite
+                    Sprite thumbnailSprite = Sprite.Create(thumbnailTexture, 
+                        new Rect(0, 0, thumbnailTexture.width, thumbnailTexture.height), 
+                        new Vector2(0.5f, 0.5f));
                     thumbnailImage.sprite = thumbnailSprite;
+                }
+                else
+                {
+                    // Fallback: try loading as Sprite directly
+                    Sprite thumbnailSprite = Resources.Load<Sprite>(data.ThumbnailPath);
+                    if (thumbnailSprite != null)
+                    {
+                        thumbnailImage.sprite = thumbnailSprite;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[CarouselElementDemo] Failed to load thumbnail from path: {data.ThumbnailPath}");
+                    }
                 }
             }
 
@@ -41,16 +58,6 @@ namespace HKCarouselLayoutGroup
         }
 
         public int GetID() => id;
-
-        public void SetCategoryAlpha(float alpha)
-        {
-            if (categoryText != null)
-            {
-                var c = categoryText.color;
-                c.a = alpha;
-                categoryText.color = c;
-            }
-        }
 
         private void LoadRatingDataFromNameText()
         {
@@ -62,26 +69,36 @@ namespace HKCarouselLayoutGroup
 
             string key = nameText.text.Trim();
 
-            // Load rating data from Resources
-            TextAsset ratingJson = Resources.Load<TextAsset>("Rating/Rating");
-            if (ratingJson == null)
+            // Get reference to the XRCarouselInputController
+            var carouselController = FindObjectOfType<XRCarouselInputController>();
+            if (carouselController == null)
             {
+                Debug.LogError("[CarouselElementDemo] Could not find XRCarouselInputController!");
                 SetRatingDisplay(0f, 0);
                 return;
             }
 
-            var ratings = JsonUtilityWrapper.FromJson<RatingData>(ratingJson.text);
-
-            foreach (var kvp in ratings)
+            // Load rating data using the controller's method
+            var ratingData = carouselController.LoadRatingData();
+            
+            if (ratingData.TryGetValue(key, out XRCarouselInputController.RatingData data))
             {
-                if (kvp.Key.Trim().Equals(key, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SetRatingDisplay(kvp.Value.average, kvp.Value.count);
-                    return;
-                }
+                SetRatingDisplay(data.average, data.count);
             }
+            else
+            {
+                SetRatingDisplay(0f, 0);
+            }
+        }
 
-            SetRatingDisplay(0f, 0);
+        public void SetCategoryAlpha(float alpha)
+        {
+            if (categoryText != null)
+            {
+                var c = categoryText.color;
+                c.a = alpha;
+                categoryText.color = c;
+            }
         }
 
         private void LoadDescriptionFromDataFile()
