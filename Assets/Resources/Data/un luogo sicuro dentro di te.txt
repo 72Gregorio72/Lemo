@@ -1,0 +1,4 @@
+Position 0 7.4 0
+Rotation 0 243.707 0 
+Audio: "un luogo sicuro dentro di te"
+Description: 

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c9058162586a14b3f8dd0670c1ce2de8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: bec959b376b824ec394b91c1391f0635, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 316314
+  packageName: HK Carousel Layout Group 3D
+  packageVersion: 1.0
+  assetPath: Assets/HamzaKhan/HKCarouselLayoutGroup/Scripts/Runtime/CarouselDemoComponents/HKCarouselValueListenerDemo.cs
+  uploadId: 748339
