@@ -70,7 +70,7 @@ namespace HKCarouselLayoutGroup
             string key = nameText.text.Trim();
 
             // Get reference to the XRCarouselInputController
-            var carouselController = FindObjectOfType<XRCarouselInputController>();
+            var carouselController = FindFirstObjectByType<XRCarouselInputController>();
             if (carouselController == null)
             {
                 Debug.LogError("[CarouselElementDemo] Could not find XRCarouselInputController!");

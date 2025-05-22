@@ -1,0 +1,15 @@
+Instructions for integrating with the XR Interaction Toolkit : 
+
+1. Make sure the XR Interaction Toolkit is installed in the Package Manager : https://docs.unity3d.com/Packages/com.unity.xr.interaction.toolkit@1.0/manual/index.html
+
+2. Extract the XRIT.unityPackage file found in this directory
+
+3. Run the Example Scene :)
+
+The main component to look at is the XRITHandController script, which is only a couple of lines long since it extends the SampleHandController script.  This shows how easy it is to integrate with 3rd party packages.
+
+The example scene shows how to set a hand pose to either predefined hand pose, "autopose once", or "autopose continuous" option. This is done by subscribing to the OnSelectEntered and OnSelectExited events. When selected (i.e. grabbed), the gameobject is checked using GetComponent<component> for a "PoseableObject" component. If found, the HandPoser will be updated to either enable a specific hand pose, or to enable the autoposer or an animator object. These are defined in the PoseableObject script you can place on your objects. 
+
+You can also write your own HandController using this script, or by basing it off of the SampleHandController.cs file.
+
+More info can be found at : https://wiki.beardedninjagames.com/en/General/HandPoses
