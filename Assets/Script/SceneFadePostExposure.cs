@@ -18,7 +18,7 @@ public class SceneFadePostExposure : MonoBehaviour
 
         if (globalVolume == null)
         {
-            Debug.LogError("Global Volume not found in scene.");
+            //Debug.LogError("Global Volume not found in scene.");
             return;
         }
 

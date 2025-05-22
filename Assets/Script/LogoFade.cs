@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
-using DG.Tweening;
+using UnityEngine.SceneManagement;
 
 public class LogoFadeAndSpawn : MonoBehaviour
 {
@@ -43,14 +43,15 @@ public class LogoFadeAndSpawn : MonoBehaviour
         }
         SetAlpha(0f); // Ensure it's fully hidden
 
-        GameObject newCanvas = Instantiate(canvasPrefab);
+        GoHomeScene(3f);
 
-        // Ensure prefab starts at correct scale
-        newCanvas.transform.localScale = Vector3.one * 0.01f;
+        
 
-        // Punch scale around current size
-        newCanvas.transform.DOPunchScale(Vector3.one * 0.005f, 0.5f, 5, 1);
+    }
 
+    private void GoHomeScene(float delay)
+    {
+       SceneManager.LoadScene(1);
     }
 
     private void SetAlpha(float alpha)

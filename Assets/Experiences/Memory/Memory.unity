@@ -483,6 +483,9 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1747317070}
     m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1717954561962503725, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1699257577}
     - targetCorrespondingSourceObject: {fileID: 1767192433, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1347534086}
@@ -3080,6 +3083,50 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: aad9504c0a944274fa7d27125efd4a4a, type: 3}
   m_PrefabInstance: {fileID: 1677742248}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1699257576 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1717954561962503725, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 294709995}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1699257577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1699257576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2b9367f422ec994384a968ac25bee95, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  OnPrimaryButtonPressed:
+    m_PersistentCalls:
+      m_Calls: []
+  OnPrimaryButtonReleased:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSecondaryButtonPressed:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSecondaryButtonReleased:
+    m_PersistentCalls:
+      m_Calls: []
+  OnGripButtonPressed:
+    m_PersistentCalls:
+      m_Calls: []
+  OnGripButtonReleased:
+    m_PersistentCalls:
+      m_Calls: []
+  returnToMenuPrefab: {fileID: 4337936954930267153, guid: 049cd5762be830f4db0d0c578ece0392, type: 3}
+  xrOrigin: {fileID: 1699257583}
+  spawnDistance: 3
+  spawnHeight: -2
+--- !u!4 &1699257583 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 294709995}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &1747317069
 GameObject:

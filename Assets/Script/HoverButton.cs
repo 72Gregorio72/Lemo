@@ -15,15 +15,22 @@ public class HoverButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
     [Tooltip("Event triggered after successful hover.")]
     public UnityEvent onHover;
 
+    [Tooltip("Event triggered when hover is interrupted or completed.")]
+    public UnityEvent onHoverEnd;
+
     private Coroutine hoverCoroutine;
     private bool isPointerOver = false;
+    private bool wasHoverCompleted = false;
 
     public void OnPointerEnter(PointerEventData eventData)
     {
         isPointerOver = true;
+        wasHoverCompleted = false;
         if (hoverCoroutine == null)
+        {
             Debug.Log("Hover started");
             hoverCoroutine = StartCoroutine(HoverRoutine());
+        }
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -34,6 +41,10 @@ public class HoverButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
             StopCoroutine(hoverCoroutine);
             hoverCoroutine = null;
         }
+        
+        // Trigger hover end event
+        onHoverEnd?.Invoke();
+        Debug.Log("Hover ended");
     }
 
     private IEnumerator HoverRoutine()
@@ -49,6 +60,7 @@ public class HoverButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHand
             yield return null;
         }
 
+        wasHoverCompleted = true;
         onHover?.Invoke();
     }
 }

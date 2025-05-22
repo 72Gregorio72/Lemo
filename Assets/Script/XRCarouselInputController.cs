@@ -15,7 +15,8 @@ namespace HKCarouselLayoutGroup
     public class XRCarouselInputController : MonoBehaviour
     {
         [Header("Carousel Control")]
-        [SerializeField] private HKCarouselLayoutGroup3DDemo carousel;
+        [SerializeField] private HKCarouselLayoutGroup3DDemo carousel360;  // For 360 UI
+        [SerializeField] private HKSceneCarouselLayoutGroup3D carouselScene;  // For Scene UI
         [SerializeField] private float inputThreshold = 0.5f;
         [SerializeField] private float scrollCooldown = 0.25f;
         [SerializeField] private float fadeOutDuration = 1f;
@@ -23,6 +24,7 @@ namespace HKCarouselLayoutGroup
         [Header("Materials & Sphere")]
         [SerializeField] private Material sphereMaterial;
         [SerializeField] private Transform videoSphere;
+        [SerializeField] private GameObject additionalToggleObject;
 
         [Header("XR Button Events")]
         public UnityEvent OnLeftPrimaryPressed;
@@ -299,23 +301,41 @@ namespace HKCarouselLayoutGroup
                     previousTriggerStates[device] = isTriggerHeld;
                 }
 
-                // THUMBSTICK - Only process if carousel is interactive and we're in 360 mode
-                GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
-                if (ui360 != null && ui360.activeInHierarchy && 
-                    isCarouselInteractive && carousel != null && 
-                    device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
+                // THUMBSTICK - Process for both carousels based on which UI is active
+                if (device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
                 {
                     if (cooldownTimer <= 0f)
                     {
-                        if (axis.x > inputThreshold)
+                        GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
+                        GameObject sceneUI = GameObject.FindGameObjectWithTag("SceneUI");
+
+                        // Handle 360 UI Carousel
+                        if (ui360 != null && ui360.activeInHierarchy && isCarouselInteractive && carousel360 != null)
                         {
-                            carousel.SimulateScroll(-1);
-                            cooldownTimer = scrollCooldown;
+                            if (axis.x > inputThreshold)
+                            {
+                                carousel360.SimulateScroll(-1);
+                                cooldownTimer = scrollCooldown;
+                            }
+                            else if (axis.x < -inputThreshold)
+                            {
+                                carousel360.SimulateScroll(1);
+                                cooldownTimer = scrollCooldown;
+                            }
                         }
-                        else if (axis.x < -inputThreshold)
+                        // Handle Scene UI Carousel
+                        else if (sceneUI != null && sceneUI.activeInHierarchy && carouselScene != null)
                         {
-                            carousel.SimulateScroll(1);
-                            cooldownTimer = scrollCooldown;
+                            if (axis.x > inputThreshold)
+                            {
+                                carouselScene.SimulateScroll(-1);
+                                cooldownTimer = scrollCooldown;
+                            }
+                            else if (axis.x < -inputThreshold)
+                            {
+                                carouselScene.SimulateScroll(1);
+                                cooldownTimer = scrollCooldown;
+                            }
                         }
                     }
                 }
@@ -402,10 +422,10 @@ namespace HKCarouselLayoutGroup
             // If 360 UI is active, handle 360 content
             else if (ui360 != null && ui360.activeInHierarchy)
             {
-                if (carousel == null || isRatingPending) return;
+                if (carousel360 == null || isRatingPending) return;
 
-                int index = carousel.GetTrueSelectedIndex();
-                var elementData = carousel.GetElementDataFromIndex(index);
+                int index = carousel360.GetTrueSelectedIndex();
+                var elementData = carousel360.GetElementDataFromIndex(index);
 
                 if (elementData is not HKCarouselElementData data || string.IsNullOrEmpty(data.VideoPath))
                     return;
@@ -901,8 +921,27 @@ namespace HKCarouselLayoutGroup
 
         private void FadeOutCanvas()
         {
-            var canvasRect = carousel.GetComponent<RectTransform>();
+            GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
+            GameObject sceneUI = GameObject.FindGameObjectWithTag("SceneUI");
+            RectTransform canvasRect = null;
+
+            // Get the active carousel's RectTransform
+            if (ui360 != null && ui360.activeInHierarchy && carousel360 != null)
+            {
+                canvasRect = carousel360.GetComponent<RectTransform>();
+            }
+            else if (sceneUI != null && sceneUI.activeInHierarchy && carouselScene != null)
+            {
+                canvasRect = carouselScene.GetComponent<RectTransform>();
+            }
+
             if (canvasRect == null) return;
+
+            // Toggle additional object
+            if (additionalToggleObject != null)
+            {
+                additionalToggleObject.SetActive(false);
+            }
 
             CanvasGroup canvasGroup = canvasRect.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
@@ -910,7 +949,7 @@ namespace HKCarouselLayoutGroup
 
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
-            isCarouselInteractive = false; // Disable carousel interaction
+            isCarouselInteractive = false;
 
             canvasGroup.DOFade(0f, fadeOutDuration)
                 .SetEase(Ease.OutQuad);
@@ -918,10 +957,28 @@ namespace HKCarouselLayoutGroup
 
         private void FadeInCanvas(bool clearTexture = true)
         {
-            var canvasRect = carousel.GetComponent<RectTransform>();
+            GameObject ui360 = GameObject.FindGameObjectWithTag("360UI");
+            GameObject sceneUI = GameObject.FindGameObjectWithTag("SceneUI");
+            RectTransform canvasRect = null;
+
+            // Get the active carousel's RectTransform
+            if (ui360 != null && ui360.activeInHierarchy && carousel360 != null)
+            {
+                canvasRect = carousel360.GetComponent<RectTransform>();
+            }
+            else if (sceneUI != null && sceneUI.activeInHierarchy && carouselScene != null)
+            {
+                canvasRect = carouselScene.GetComponent<RectTransform>();
+            }
+
             if (canvasRect == null) return;
 
-            // Only clear texture if explicitly requested (when switching content)
+            // Toggle additional object
+            if (additionalToggleObject != null)
+            {
+                additionalToggleObject.SetActive(true);
+            }
+
             if (clearTexture && sphereMaterial != null)
             {
                 sphereMaterial.SetTexture("_MainTex", null);
@@ -934,7 +991,7 @@ namespace HKCarouselLayoutGroup
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
-            isCarouselInteractive = true; // Re-enable carousel interaction
+            isCarouselInteractive = true;
 
             canvasGroup.DOFade(1f, fadeOutDuration)
                 .SetEase(Ease.OutQuad);
