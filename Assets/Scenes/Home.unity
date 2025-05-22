@@ -660,24 +660,19 @@ MonoBehaviour:
   _spacingModMulti: -0.008
   _depthModMulti: 0.2
   sceneElements:
-  - sceneName: Intro
-    sceneIndex: 0
-    thumbnailPath: 
-    description: "Questa \xE8 la prova per la scena 1"
-  - sceneName: Prova 2
-    sceneIndex: 1
-    thumbnailPath: 
-    description: "Questa \xE8 la prova per la scena 2"
-  - sceneName: Asdrubale
+  - sceneName: memory
     sceneIndex: 2
     thumbnailPath: 
-    description: "Questa \xE8 la prova per la scena 3"
+    description: metti alla prova la tua memoria
+  - sceneName: Paint
+    sceneIndex: 3
+    thumbnailPath: 
+    description: ...
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
   _content: {fileID: 700237512}
   _itemPrefab: {fileID: 4337936954930267153, guid: d68ece89dcbd5c74e87e32bd647b7421, type: 3}
-  isLeftController: 0
   inputThreshold: 0.5
   scrollCooldown: 0.25
   scrollLerpSpeed: 10
@@ -1515,13 +1510,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ui360: {fileID: 950514332}
   uiScene: {fileID: 700237509}
-  isLeftController: 0
   transitionDuration: 2
   easeType: 18
   scaleMultiplier: 0.1
-  transitionRadius: 2
-  rotationDegrees: 90
-  rotationAxis: {x: 0, y: 1, z: 0}
 --- !u!23 &1937638340 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 878442245249825245, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
@@ -1552,6 +1543,12 @@ MonoBehaviour:
     pressedColor: {r: 0.053278685, g: 1, b: 0, a: 1}
     originalMaterial: {fileID: 2100000, guid: 99685157b02e4d446bbecb015645e5e8, type: 2}
     outlineMaterial: {fileID: 7390553463975553142, guid: 7ab6f3b0fd1a6ba41b2a47766c16613f, type: 3}
+    imageCanvas: {fileID: 0}
+    imageRectTransform: {fileID: 0}
+    imagePosition: {x: 0, y: 0, z: 0}
+    imageRotation: {x: 0, y: 0, z: 0}
+    imageScale: {x: 0, y: 0, z: 0}
+    imageSize: 0
   - buttonName: Bumper
     buttonMeshRenderer: {fileID: 1937638340}
     normalColor: {r: 1, g: 0.94291973, b: 0, a: 1}
@@ -1559,6 +1556,12 @@ MonoBehaviour:
     pressedColor: {r: 0.053278685, g: 1, b: 0, a: 1}
     originalMaterial: {fileID: 2100000, guid: 99685157b02e4d446bbecb015645e5e8, type: 2}
     outlineMaterial: {fileID: 7390553463975553142, guid: 7ab6f3b0fd1a6ba41b2a47766c16613f, type: 3}
+    imageCanvas: {fileID: 0}
+    imageRectTransform: {fileID: 0}
+    imagePosition: {x: 0, y: 0, z: 0}
+    imageRotation: {x: 0, y: 0, z: 0}
+    imageScale: {x: 0, y: 0, z: 0}
+    imageSize: 0
   isLeftController: 0
 --- !u!1 &2092139007
 GameObject:

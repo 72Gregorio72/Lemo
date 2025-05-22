@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.XR;
 using System.Collections.Generic;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 public class XRButtonVisualFeedback : MonoBehaviour
 {
@@ -15,6 +16,12 @@ public class XRButtonVisualFeedback : MonoBehaviour
         public Color pressedColor = new Color(0.3f, 0.6f, 1f, 1f);
         public Material originalMaterial;
         public Material outlineMaterial;
+        public Canvas imageCanvas;
+        public RectTransform imageRectTransform;
+        public Vector3 imagePosition;
+        public Vector3 imageRotation;
+        public Vector3 imageScale;
+        public float imageSize;
     }
 
     [Header("Button Setup")]
@@ -145,6 +152,8 @@ public class XRButtonVisualFeedback : MonoBehaviour
             }
 
             previousButtonStates[button.buttonName] = isPressed;
+
+            UpdateImageTransform(button);
         }
     }
 
@@ -164,6 +173,25 @@ public class XRButtonVisualFeedback : MonoBehaviour
         materials[1].color = new Color(color.r, color.g, color.b, 0.5f);
         
         button.buttonMeshRenderer.materials = materials;
+    }
+
+    private void UpdateImageTransform(ButtonVisuals button)
+    {
+        if (button.imageCanvas != null && button.imageRectTransform != null)
+        {
+            // Position
+            button.imageRectTransform.localPosition = button.imagePosition * 1000f;
+            
+            // Rotation
+            button.imageRectTransform.localRotation = Quaternion.Euler(button.imageRotation);
+            
+            // Scale - Apply both to transform and size
+            button.imageRectTransform.localScale = button.imageScale;
+            
+            // Base size
+            float scaledSize = button.imageSize * 100f;
+            button.imageRectTransform.sizeDelta = new Vector2(scaledSize, scaledSize);
+        }
     }
 
     private void OnDestroy()
