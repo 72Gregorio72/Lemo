@@ -34,7 +34,6 @@ namespace HKCarouselLayoutGroup
         [SerializeField] private GameObject _itemPrefab;
         
         [Header("XR Input")]
-        [SerializeField] private bool isLeftController = false;
         [SerializeField] private float inputThreshold = 0.5f;
         [SerializeField] private float scrollCooldown = 0.25f;
         [SerializeField] private float scrollLerpSpeed = 10f;
@@ -49,11 +48,14 @@ namespace HKCarouselLayoutGroup
         private bool _needsUpdate = true;
         private int _lastSelectedIndex = -1;
 
-        private InputDevice targetDevice;
-        private bool deviceInitialized = false;
+        private InputDevice leftController;
+        private InputDevice rightController;
+        private bool devicesInitialized = false;
         private float cooldownTimer = 0f;
-        private bool isScrolling = false;
+        //private bool isScrolling = false;
         private float targetScroll;
+        private bool _isSimulatingScroll = false;
+        private float _targetScroll;
 
         public int CurrentSelectedIndex { get; private set; }
 
@@ -89,44 +91,49 @@ namespace HKCarouselLayoutGroup
             _scroll = _defaultSelectedIndex;
         }
 
-        private void InitializeDevice()
+        private void InitializeDevices()
         {
-            if (deviceInitialized) return;
+            if (devicesInitialized) return;
 
-            var characteristics = InputDeviceCharacteristics.Controller;
-            characteristics |= isLeftController ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right;
-            
-            var devices = new List<InputDevice>();
-            InputDevices.GetDevicesWithCharacteristics(characteristics, devices);
-
-            if (devices.Count > 0)
+            var leftDevices = new List<InputDevice>();
+            InputDevices.GetDevicesWithCharacteristics(InputDeviceCharacteristics.Controller | InputDeviceCharacteristics.Left, leftDevices);
+            if (leftDevices.Count > 0)
             {
-                targetDevice = devices[0];
-                deviceInitialized = true;
+                leftController = leftDevices[0];
             }
+
+            var rightDevices = new List<InputDevice>();
+            InputDevices.GetDevicesWithCharacteristics(InputDeviceCharacteristics.Controller | InputDeviceCharacteristics.Right, rightDevices);
+            if (rightDevices.Count > 0)
+            {
+                rightController = rightDevices[0];
+            }
+
+            devicesInitialized = leftController.isValid && rightController.isValid;
         }
 
         private void Update()
         {
-            if (!deviceInitialized)
+            if (!devicesInitialized)
             {
-                InitializeDevice();
+                InitializeDevices();
             }
 
             cooldownTimer -= Time.deltaTime;
             HandleThumbstickInput();
 
             // Handle smooth scrolling
-            if (isScrolling)
+            if (_isSimulatingScroll)
             {
-                _scroll = Mathf.Lerp(_scroll, targetScroll, Time.deltaTime * scrollLerpSpeed);
+                _scroll = Mathf.Lerp(_scroll, _targetScroll, Time.deltaTime * scrollLerpSpeed);
                 _needsUpdate = true;
 
                 // Check if we've reached (or very close to) the target
-                if (Mathf.Abs(_scroll - targetScroll) < 0.01f)
+                if (Mathf.Abs(_scroll - _targetScroll) < 0.01f)
                 {
-                    _scroll = targetScroll;
-                    isScrolling = false;
+                    _scroll = _targetScroll;
+                    _isSimulatingScroll = false;
+                    OnEndSimulatedDrag();
                 }
             }
 
@@ -142,33 +149,59 @@ namespace HKCarouselLayoutGroup
 
         private void HandleThumbstickInput()
         {
-            if (!targetDevice.isValid) return;
-
-            if (targetDevice.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
+            // First check if this UI is actually visible and interactable
+            CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+            if (canvasGroup != null && (canvasGroup.alpha == 0 || !canvasGroup.interactable))
             {
-                if (cooldownTimer <= 0f && !isScrolling)
+                return; // Don't process input if UI is invisible or non-interactable
+            }
+
+            if (!devicesInitialized) return;
+
+            Vector2 leftAxis = Vector2.zero;
+            Vector2 rightAxis = Vector2.zero;
+
+            leftController.TryGetFeatureValue(CommonUsages.primary2DAxis, out leftAxis);
+            rightController.TryGetFeatureValue(CommonUsages.primary2DAxis, out rightAxis);
+
+            // Use whichever thumbstick is being moved more
+            Vector2 activeAxis = (Mathf.Abs(leftAxis.x) > Mathf.Abs(rightAxis.x)) ? leftAxis : rightAxis;
+
+            if (cooldownTimer <= 0f && !_isSimulatingScroll)
+            {
+                if (activeAxis.x > inputThreshold)
                 {
-                    if (axis.x > inputThreshold)
-                    {
-                        SimulateScroll(-1);
-                        cooldownTimer = scrollCooldown;
-                    }
-                    else if (axis.x < -inputThreshold)
-                    {
-                        SimulateScroll(1);
-                        cooldownTimer = scrollCooldown;
-                    }
+                    SimulateScroll(-1);
+                    cooldownTimer = scrollCooldown;
+                }
+                else if (activeAxis.x < -inputThreshold)
+                {
+                    SimulateScroll(1);
+                    cooldownTimer = scrollCooldown;
                 }
             }
         }
 
         public void SimulateScroll(float direction)
         {
-            if (direction == 0 || _items.Count == 0) return;
+            if (direction == 0 || _items.Count == 0 || _isSimulatingScroll)
+                return;
 
             int nextIndex = Mathf.Clamp(Mathf.RoundToInt(_scroll - direction), 0, Mathf.Max(0, _items.Count - 1));
-            targetScroll = nextIndex;
-            isScrolling = true;
+            _targetScroll = nextIndex;
+            _isSimulatingScroll = true;
+
+            OnBeginSimulatedDrag();
+        }
+
+        private void OnBeginSimulatedDrag()
+        {
+            _isDragging = true;
+        }
+
+        private void OnEndSimulatedDrag()
+        {
+            _isDragging = false;
         }
 
         private void HandleScroll()
