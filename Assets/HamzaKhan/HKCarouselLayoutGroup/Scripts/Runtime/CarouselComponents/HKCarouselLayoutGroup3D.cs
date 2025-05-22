@@ -285,9 +285,9 @@ namespace HKCarouselLayoutGroup
 
         private void CreatePool()
         {
-            if (_poolCreated) return; // ⛔ Already created
+            if (_poolCreated) return; // Already created
 
-            _poolCreated = true; // ✅ Set flag
+            _poolCreated = true; // Set flag
 
             if (_poolElements == null)
                 _poolElements = new List<PoolElement>();
