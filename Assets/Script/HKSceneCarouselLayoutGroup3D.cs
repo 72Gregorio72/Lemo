@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
-using UnityEngine.XR;
+using DG.Tweening;
 
 namespace HKCarouselLayoutGroup
 {
@@ -33,13 +33,16 @@ namespace HKCarouselLayoutGroup
         [SerializeField] private RectTransform _content;
         [SerializeField] private GameObject _itemPrefab;
         
-        [Header("XR Input")]
-        [SerializeField] private float inputThreshold = 0.5f;
-        [SerializeField] private float scrollCooldown = 0.25f;
+        [Header("Smooth Scrolling")]
         [SerializeField] private float scrollLerpSpeed = 10f;
         
         [Header("Callbacks")]
         public UnityEvent<int> OnValueChanged;
+
+        [Header("Animation Settings")]
+        [SerializeField] private float transitionDuration = 0.5f;
+        [SerializeField] private Ease easeType = Ease.OutBack;
+        [SerializeField] private float scaleMultiplier = 0.8f;
 
         private List<RectTransform> _items = new List<RectTransform>();
         private Vector2 _dragStartPos;
@@ -47,15 +50,8 @@ namespace HKCarouselLayoutGroup
         private float _lastScroll = -1;
         private bool _needsUpdate = true;
         private int _lastSelectedIndex = -1;
-
-        private InputDevice leftController;
-        private InputDevice rightController;
-        private bool devicesInitialized = false;
-        private float cooldownTimer = 0f;
-        //private bool isScrolling = false;
+        private bool isScrolling = false;
         private float targetScroll;
-        private bool _isSimulatingScroll = false;
-        private float _targetScroll;
 
         public int CurrentSelectedIndex { get; private set; }
 
@@ -65,74 +61,19 @@ namespace HKCarouselLayoutGroup
             UpdateCarousel();
         }
 
-        private void CreateItems()
-        {
-            // Clear existing items
-            foreach (Transform child in _content)
-            {
-                Destroy(child.gameObject);
-            }
-            _items.Clear();
-
-            // Create new items
-            for (int i = 0; i < sceneElements.Count; i++)
-            {
-                GameObject item = Instantiate(_itemPrefab, _content);
-                RectTransform rt = item.GetComponent<RectTransform>();
-                _items.Add(rt);
-
-                var demo = item.GetComponent<SceneCarouselElementDemo>();
-                if (demo != null)
-                {
-                    demo.ConfigureElement(sceneElements[i], i);
-                }
-            }
-
-            _scroll = _defaultSelectedIndex;
-        }
-
-        private void InitializeDevices()
-        {
-            if (devicesInitialized) return;
-
-            var leftDevices = new List<InputDevice>();
-            InputDevices.GetDevicesWithCharacteristics(InputDeviceCharacteristics.Controller | InputDeviceCharacteristics.Left, leftDevices);
-            if (leftDevices.Count > 0)
-            {
-                leftController = leftDevices[0];
-            }
-
-            var rightDevices = new List<InputDevice>();
-            InputDevices.GetDevicesWithCharacteristics(InputDeviceCharacteristics.Controller | InputDeviceCharacteristics.Right, rightDevices);
-            if (rightDevices.Count > 0)
-            {
-                rightController = rightDevices[0];
-            }
-
-            devicesInitialized = leftController.isValid && rightController.isValid;
-        }
-
         private void Update()
         {
-            if (!devicesInitialized)
-            {
-                InitializeDevices();
-            }
-
-            cooldownTimer -= Time.deltaTime;
-            HandleThumbstickInput();
-
             // Handle smooth scrolling
-            if (_isSimulatingScroll)
+            if (isScrolling)
             {
-                _scroll = Mathf.Lerp(_scroll, _targetScroll, Time.deltaTime * scrollLerpSpeed);
+                _scroll = Mathf.Lerp(_scroll, targetScroll, Time.deltaTime * scrollLerpSpeed);
                 _needsUpdate = true;
 
                 // Check if we've reached (or very close to) the target
-                if (Mathf.Abs(_scroll - _targetScroll) < 0.01f)
+                if (Mathf.Abs(_scroll - targetScroll) < 0.01f)
                 {
-                    _scroll = _targetScroll;
-                    _isSimulatingScroll = false;
+                    _scroll = targetScroll;
+                    isScrolling = false;
                     OnEndSimulatedDrag();
                 }
             }
@@ -147,50 +88,14 @@ namespace HKCarouselLayoutGroup
             }
         }
 
-        private void HandleThumbstickInput()
-        {
-            // First check if this UI is actually visible and interactable
-            CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
-            if (canvasGroup != null && (canvasGroup.alpha == 0 || !canvasGroup.interactable))
-            {
-                return; // Don't process input if UI is invisible or non-interactable
-            }
-
-            if (!devicesInitialized) return;
-
-            Vector2 leftAxis = Vector2.zero;
-            Vector2 rightAxis = Vector2.zero;
-
-            leftController.TryGetFeatureValue(CommonUsages.primary2DAxis, out leftAxis);
-            rightController.TryGetFeatureValue(CommonUsages.primary2DAxis, out rightAxis);
-
-            // Use whichever thumbstick is being moved more
-            Vector2 activeAxis = (Mathf.Abs(leftAxis.x) > Mathf.Abs(rightAxis.x)) ? leftAxis : rightAxis;
-
-            if (cooldownTimer <= 0f && !_isSimulatingScroll)
-            {
-                if (activeAxis.x > inputThreshold)
-                {
-                    SimulateScroll(-1);
-                    cooldownTimer = scrollCooldown;
-                }
-                else if (activeAxis.x < -inputThreshold)
-                {
-                    SimulateScroll(1);
-                    cooldownTimer = scrollCooldown;
-                }
-            }
-        }
-
         public void SimulateScroll(float direction)
         {
-            if (direction == 0 || _items.Count == 0 || _isSimulatingScroll)
+            if (direction == 0 || _items.Count == 0 || isScrolling)
                 return;
 
             int nextIndex = Mathf.Clamp(Mathf.RoundToInt(_scroll - direction), 0, Mathf.Max(0, _items.Count - 1));
-            _targetScroll = nextIndex;
-            _isSimulatingScroll = true;
-
+            targetScroll = nextIndex;
+            isScrolling = true;
             OnBeginSimulatedDrag();
         }
 
@@ -224,6 +129,32 @@ namespace HKCarouselLayoutGroup
             {
                 _scroll = Mathf.Clamp(_scroll, 0, Mathf.Max(0, _items.Count - 1));
             }
+        }
+
+        private void CreateItems()
+        {
+            // Clear existing items
+            foreach (Transform child in _content)
+            {
+                Destroy(child.gameObject);
+            }
+            _items.Clear();
+
+            // Create new items
+            for (int i = 0; i < sceneElements.Count; i++)
+            {
+                GameObject item = Instantiate(_itemPrefab, _content);
+                RectTransform rt = item.GetComponent<RectTransform>();
+                _items.Add(rt);
+
+                var demo = item.GetComponent<SceneCarouselElementDemo>();
+                if (demo != null)
+                {
+                    demo.ConfigureElement(sceneElements[i], i);
+                }
+            }
+
+            _scroll = _defaultSelectedIndex;
         }
 
         private void UpdateCarousel()
@@ -319,7 +250,6 @@ namespace HKCarouselLayoutGroup
             return CurrentSelectedIndex;
         }
 
-        // Method to manually set scene data
         public void SetSceneElements(List<HKSceneCarouselData> newElements)
         {
             sceneElements = newElements;

@@ -1,208 +1,201 @@
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR;
 using System.Collections.Generic;
 using UnityEngine.Rendering;
-using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit.Inputs;
 
 public class XRButtonVisualFeedback : MonoBehaviour
 {
-    [System.Serializable]
-    public class ButtonVisuals
+    // Enum for button types to use in dropdown
+    public enum XRButtonType
     {
-        public string buttonName;
-        public MeshRenderer buttonMeshRenderer;
-        public Color normalColor = Color.white;
-        public Color hoveredColor = new Color(0.5f, 0.8f, 1f, 1f);
-        public Color pressedColor = new Color(0.3f, 0.6f, 1f, 1f);
-        public Material originalMaterial;
-        public Material outlineMaterial;
-        public Canvas imageCanvas;
-        public RectTransform imageRectTransform;
-        public Vector3 imagePosition;
-        public Vector3 imageRotation;
-        public Vector3 imageScale;
-        public float imageSize;
+        PrimaryButton,  // A or X
+        SecondaryButton, // B or Y
+        Trigger,
+        Grip,
+        Thumbstick,
+        Menu
     }
 
-    [Header("Button Setup")]
-    public ButtonVisuals[] buttons;
+    [System.Serializable]
+    public class XRButton
+    {
+        public string buttonName; // Keep for display purposes
+        [Tooltip("Button type to detect input for")]
+        public XRButtonType buttonType = XRButtonType.PrimaryButton;
+        
+        public MeshRenderer meshRenderer;
+        
+        [Header("Colors")]
+        [ColorUsage(false, true, 0f, 1f, 0f, 1f)]
+        public Color normalColor = Color.white;
+        
+        [ColorUsage(false, true, 0f, 1f, 0f, 1f)]
+        public Color pressedColor = Color.green;
+
+        [Header("Image")]
+        public bool useImage = false;
+        public Sprite imageSprite;
+        public Vector3 imageScale = Vector3.one;
+        public Vector3 imagePosition = Vector3.zero;
+        public Vector3 imageRotation = Vector3.zero;
+
+        [HideInInspector] public Image imageComponent;
+        [HideInInspector] public bool isPressed = false;
+    }
+
+    public XRButton[] buttons;
     
     [Header("Controller Settings")]
-    public bool isLeftController;
+    public bool isLeftController = false;
     
-    private Dictionary<string, bool> previousButtonStates = new Dictionary<string, bool>();
-    private InputDevice targetDevice;
-    private bool deviceInitialized = false;
+    // Device references - explicitly use UnityEngine.XR.InputDevice
+    private UnityEngine.XR.InputDevice targetDevice;
+    private bool deviceConnected = false;
 
-    private void Start()
+    void Start()
     {
-        // Store original materials and create outline materials
-        foreach (var button in buttons)
+        foreach (var btn in buttons)
         {
-            button.originalMaterial = button.buttonMeshRenderer.material;
-            
-            // Create outline material using URP Lit shader
-            button.outlineMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            if (button.outlineMaterial.shader == null)
+            if (btn.meshRenderer)
+                btn.meshRenderer.material.color = btn.normalColor;
+
+            if (btn.useImage && btn.imageSprite)
             {
-                // Fallback to URP Simple Lit if Lit is not found
-                button.outlineMaterial = new Material(Shader.Find("Universal Render Pipeline/Simple Lit"));
+                // Create Canvas - simple WorldSpace canvas as child of the button
+                GameObject canvasObj = new GameObject($"{btn.buttonType}_Canvas");
+                canvasObj.transform.SetParent(btn.meshRenderer.transform);
+                Canvas canvas = canvasObj.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.WorldSpace;
+                
+                // Set default position and scale
+                canvas.transform.localPosition = new Vector3(0, 0.001f, 0);
+                canvas.transform.localRotation = Quaternion.identity;
+                canvas.transform.localScale = Vector3.one;
+
+                // Create Image - basic centered image
+                GameObject imgObj = new GameObject($"{btn.buttonType}_Image");
+                imgObj.transform.SetParent(canvasObj.transform, false);
+                btn.imageComponent = imgObj.AddComponent<Image>();
+                btn.imageComponent.sprite = btn.imageSprite;
+                btn.imageComponent.preserveAspect = true;
+                
+                // Setup RectTransform
+                RectTransform rectTransform = imgObj.GetComponent<RectTransform>();
+                rectTransform.sizeDelta = new Vector2(1, 1);
+                rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+                rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                
+                // Apply the scale from inspector
+                rectTransform.localScale = btn.imageScale;
+                rectTransform.localPosition = btn.imagePosition;
+                rectTransform.localRotation = Quaternion.Euler(btn.imageRotation);
+
+                // Set initial color
+                btn.imageComponent.color = btn.normalColor;
             }
-            
-            // Configure the material for transparency
-            button.outlineMaterial.SetFloat("_Surface", 1); // 0 = opaque, 1 = transparent
-            button.outlineMaterial.SetFloat("_Blend", 0); // 0 = alpha, 1 = premultiply
-            button.outlineMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            button.outlineMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
-            button.outlineMaterial.renderQueue = 3000;
-            
-            // Set material properties
-            button.outlineMaterial.SetFloat("_Smoothness", 0.5f);
-            button.outlineMaterial.SetFloat("_Metallic", 0.0f);
         }
     }
-
-    private void Update()
+    
+    void Update()
     {
-        if (!deviceInitialized)
+        if (!deviceConnected || !targetDevice.isValid)
         {
-            InitializeDevice();
+            TryInitializeDevice();
             return;
         }
-
-        if (!targetDevice.isValid)
-        {
-            deviceInitialized = false;
-            return;
-        }
-
-        UpdateButtonVisuals();
-    }
-
-    private void InitializeDevice()
-    {
-        var characteristics = InputDeviceCharacteristics.Controller;
-        characteristics |= isLeftController ? InputDeviceCharacteristics.Left : InputDeviceCharacteristics.Right;
         
-        var devices = new List<InputDevice>();
-        InputDevices.GetDevicesWithCharacteristics(characteristics, devices);
-
+        UpdateButtonStates();
+    }
+    
+    private void TryInitializeDevice()
+    {
+        // Define characteristics for the controller
+        InputDeviceCharacteristics controllerCharacteristics = InputDeviceCharacteristics.Controller;
+        
+        // Add left or right characteristic
+        if (isLeftController)
+            controllerCharacteristics |= InputDeviceCharacteristics.Left;
+        else
+            controllerCharacteristics |= InputDeviceCharacteristics.Right;
+            
+        // Find all devices with these characteristics
+        List<InputDevice> devices = new List<InputDevice>();
+        InputDevices.GetDevicesWithCharacteristics(controllerCharacteristics, devices);
+        
+        // If a matching controller is found, use it
         if (devices.Count > 0)
         {
             targetDevice = devices[0];
-            deviceInitialized = true;
+            deviceConnected = true;
+            Debug.Log($"Connected to {(isLeftController ? "left" : "right")} controller");
         }
     }
-
-    private void UpdateButtonVisuals()
+    
+    private void UpdateButtonStates()
     {
         foreach (var button in buttons)
         {
-            bool isPressed = false;
-            bool wasPressed = false;
-            previousButtonStates.TryGetValue(button.buttonName, out wasPressed);
-
-            // Check button state based on button name
-            switch (button.buttonName.ToLower())
+            bool isCurrentlyPressed = false;
+            
+            // Check button states based on dropdown selection
+            switch (button.buttonType)
             {
-                case "button a":
-                case "button x":
-                    targetDevice.TryGetFeatureValue(CommonUsages.primaryButton, out isPressed);
+                case XRButtonType.PrimaryButton:
+                    targetDevice.TryGetFeatureValue(CommonUsages.primaryButton, out isCurrentlyPressed);
                     break;
-                case "button b":
-                case "button y":
-                    targetDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out isPressed);
+                    
+                case XRButtonType.SecondaryButton:
+                    targetDevice.TryGetFeatureValue(CommonUsages.secondaryButton, out isCurrentlyPressed);
                     break;
-                case "trigger":
-                    targetDevice.TryGetFeatureValue(CommonUsages.triggerButton, out isPressed);
-                    break;
-                case "grip":
-                    targetDevice.TryGetFeatureValue(CommonUsages.gripButton, out isPressed);
-                    break;
-                case "bumper":
+                    
+                case XRButtonType.Trigger:
                     float triggerValue = 0f;
                     if (targetDevice.TryGetFeatureValue(CommonUsages.trigger, out triggerValue))
-                    {
-                        isPressed = triggerValue > 0.1f;
-                    }
+                        isCurrentlyPressed = triggerValue > 0.5f; // Pressed when more than halfway
                     break;
-                default:
-                    Debug.LogWarning($"Button name '{button.buttonName}' not recognized. Please use: 'Button A', 'Button B', 'Button X', 'Button Y', 'Trigger', 'Grip', or 'Bumper'");
+                    
+                case XRButtonType.Grip:
+                    float gripValue = 0f;
+                    if (targetDevice.TryGetFeatureValue(CommonUsages.grip, out gripValue))
+                        isCurrentlyPressed = gripValue > 0.5f; // Pressed when more than halfway
+                    break;
+                    
+                case XRButtonType.Thumbstick:
+                    targetDevice.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out isCurrentlyPressed);
+                    break;
+                    
+                case XRButtonType.Menu:
+                    targetDevice.TryGetFeatureValue(CommonUsages.menuButton, out isCurrentlyPressed);
                     break;
             }
-
-            // Debug information
-            if (isPressed)
+            
+            // Update button visual state only if state changed
+            if (isCurrentlyPressed != button.isPressed)
             {
-                Debug.Log($"Button {button.buttonName} is pressed!");
+                button.isPressed = isCurrentlyPressed;
+                UpdateButtonVisual(button);
             }
-
-            // Update button visuals
-            if (isPressed)
-            {
-                ApplyButtonEffect(button, button.pressedColor);
-            }
-            else if (wasPressed)
-            {
-                ApplyButtonEffect(button, button.hoveredColor);
-            }
-            else
-            {
-                ApplyButtonEffect(button, button.normalColor);
-            }
-
-            previousButtonStates[button.buttonName] = isPressed;
-
-            UpdateImageTransform(button);
         }
     }
 
-    private void ApplyButtonEffect(ButtonVisuals button, Color color)
+    private void UpdateButtonVisual(XRButton button)
     {
-        // Set the original material with the specified color
-        Material[] materials = button.buttonMeshRenderer.materials;
-        materials[0] = button.originalMaterial;
-        materials[0].color = color;
-
-        // Add outline material
-        if (materials.Length < 2)
+        // Update mesh color
+        if (button.meshRenderer)
         {
-            System.Array.Resize(ref materials, 2);
+            button.meshRenderer.material.color = button.isPressed ? button.pressedColor : button.normalColor;
         }
-        materials[1] = button.outlineMaterial;
-        materials[1].color = new Color(color.r, color.g, color.b, 0.5f);
         
-        button.buttonMeshRenderer.materials = materials;
-    }
-
-    private void UpdateImageTransform(ButtonVisuals button)
-    {
-        if (button.imageCanvas != null && button.imageRectTransform != null)
+        // Update image color and visibility
+        if (button.useImage && button.imageComponent != null)
         {
-            // Position
-            button.imageRectTransform.localPosition = button.imagePosition * 1000f;
+            button.imageComponent.color = button.isPressed ? button.pressedColor : button.normalColor;
             
-            // Rotation
-            button.imageRectTransform.localRotation = Quaternion.Euler(button.imageRotation);
-            
-            // Scale - Apply both to transform and size
-            button.imageRectTransform.localScale = button.imageScale;
-            
-            // Base size
-            float scaledSize = button.imageSize * 100f;
-            button.imageRectTransform.sizeDelta = new Vector2(scaledSize, scaledSize);
-        }
-    }
-
-    private void OnDestroy()
-    {
-        // Clean up materials
-        foreach (var button in buttons)
-        {
-            if (button.outlineMaterial != null)
-            {
-                Destroy(button.outlineMaterial);
-            }
+            // Hide image when pressed, show when released
+            button.imageComponent.enabled = !button.isPressed;
         }
     }
 } 
