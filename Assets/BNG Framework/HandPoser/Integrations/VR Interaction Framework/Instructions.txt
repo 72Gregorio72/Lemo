@@ -1,0 +1,7 @@
+The VR Interaction Framework has built-in support for the Hand Poser Toolset. To integrate, simply import this package on top of VRIF.
+
+If you want to use some of the additional models this package includes, drag the prefabs into the ModelsLeft / ModelsRight Transforms on the player controller, next to the existing hand models. Make sure the alignment is correct, and that the Hand Model Selector is set to use your new models.
+
+For left hand models, make sure to set the X scale to -1 on the appropriate transform. This will flip the hand model to make it left-handed. Since the hand model is never parented to this allows you to use one hand model rig for all animations.
+
+More info can be found at : https://wiki.beardedninjagames.com/en/General/HandPose
