@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.XR;
 using System.Collections.Generic;
 using UnityEngine.Rendering;
-using UnityEngine.UI;
 
 public class XRButtonVisualFeedback : MonoBehaviour
 {
@@ -11,29 +10,11 @@ public class XRButtonVisualFeedback : MonoBehaviour
     {
         public string buttonName;
         public MeshRenderer buttonMeshRenderer;
-        [Header("Button Image")]
-        public Sprite buttonIcon;
-        [Header("Image Settings")]
-        public bool useImage = true;
-        public Vector3 imagePosition = new Vector3(0, 0.005f, 0);
-        public Vector3 imageRotation = new Vector3(90, 0, 0);
-        public Vector3 imageScale = new Vector3(1f, 1f, 1f);
-        public float imageSize = 0.02f; // Overall size in world units
-        [Header("Colors")]
         public Color normalColor = Color.white;
         public Color hoveredColor = new Color(0.5f, 0.8f, 1f, 1f);
         public Color pressedColor = new Color(0.3f, 0.6f, 1f, 1f);
-        [Header("Materials")]
         public Material originalMaterial;
         public Material outlineMaterial;
-
-        // Internal reference
-        [HideInInspector]
-        public Image imageComponent;
-        [HideInInspector]
-        public Canvas imageCanvas;
-        [HideInInspector]
-        public RectTransform imageRectTransform;
     }
 
     [Header("Button Setup")]
@@ -57,12 +38,13 @@ public class XRButtonVisualFeedback : MonoBehaviour
             button.outlineMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             if (button.outlineMaterial.shader == null)
             {
+                // Fallback to URP Simple Lit if Lit is not found
                 button.outlineMaterial = new Material(Shader.Find("Universal Render Pipeline/Simple Lit"));
             }
             
             // Configure the material for transparency
-            button.outlineMaterial.SetFloat("_Surface", 1);
-            button.outlineMaterial.SetFloat("_Blend", 0);
+            button.outlineMaterial.SetFloat("_Surface", 1); // 0 = opaque, 1 = transparent
+            button.outlineMaterial.SetFloat("_Blend", 0); // 0 = alpha, 1 = premultiply
             button.outlineMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             button.outlineMaterial.EnableKeyword("_ALPHAPREMULTIPLY_ON");
             button.outlineMaterial.renderQueue = 3000;
@@ -70,65 +52,6 @@ public class XRButtonVisualFeedback : MonoBehaviour
             // Set material properties
             button.outlineMaterial.SetFloat("_Smoothness", 0.5f);
             button.outlineMaterial.SetFloat("_Metallic", 0.0f);
-
-            // Initialize UI image if icon is assigned
-            if (button.useImage && button.buttonIcon != null)
-            {
-                // Create Canvas
-                GameObject canvasObj = new GameObject($"{button.buttonName}_Canvas");
-                canvasObj.transform.SetParent(button.buttonMeshRenderer.transform);
-                button.imageCanvas = canvasObj.AddComponent<Canvas>();
-                button.imageCanvas.renderMode = RenderMode.WorldSpace;
-                
-                // Set canvas initial transform
-                canvasObj.transform.localPosition = Vector3.zero;
-                canvasObj.transform.localRotation = Quaternion.identity;
-                canvasObj.transform.localScale = Vector3.one * 0.001f; // Small base scale for better control
-
-                // Add Canvas Scaler
-                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-                scaler.dynamicPixelsPerUnit = 1000;
-
-                // Create Image GameObject
-                GameObject imageObj = new GameObject($"{button.buttonName}_Image");
-                imageObj.transform.SetParent(canvasObj.transform, false);
-                button.imageComponent = imageObj.AddComponent<Image>();
-                button.imageRectTransform = imageObj.GetComponent<RectTransform>();
-                
-                // Configure image
-                button.imageComponent.sprite = button.buttonIcon;
-                button.imageComponent.preserveAspect = true;
-                float baseSize = 100f; // Base size in UI units
-                button.imageRectTransform.sizeDelta = new Vector2(baseSize, baseSize);
-                button.imageComponent.color = button.normalColor;
-                
-                // Center the image
-                button.imageRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-                button.imageRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-                button.imageRectTransform.pivot = new Vector2(0.5f, 0.5f);
-                
-                // Apply transform values
-                UpdateImageTransform(button);
-            }
-        }
-    }
-
-    private void UpdateImageTransform(ButtonVisuals button)
-    {
-        if (button.imageCanvas != null && button.imageRectTransform != null)
-        {
-            // Position
-            button.imageRectTransform.localPosition = button.imagePosition * 1000f;
-            
-            // Rotation
-            button.imageRectTransform.localRotation = Quaternion.Euler(button.imageRotation);
-            
-            // Scale - Apply both to transform and size
-            button.imageRectTransform.localScale = button.imageScale;
-            
-            // Base size
-            float scaledSize = button.imageSize * 100f;
-            button.imageRectTransform.sizeDelta = new Vector2(scaledSize, scaledSize);
         }
     }
 
@@ -147,15 +70,6 @@ public class XRButtonVisualFeedback : MonoBehaviour
         }
 
         UpdateButtonVisuals();
-        
-        // Update image transforms in case values changed in inspector
-        foreach (var button in buttons)
-        {
-            if (button.useImage && button.buttonIcon != null)
-            {
-                UpdateImageTransform(button);
-            }
-        }
     }
 
     private void InitializeDevice()
@@ -206,31 +120,37 @@ public class XRButtonVisualFeedback : MonoBehaviour
                     }
                     break;
                 default:
-                    Debug.LogWarning($"Button name '{button.buttonName}' not recognized.");
+                    Debug.LogWarning($"Button name '{button.buttonName}' not recognized. Please use: 'Button A', 'Button B', 'Button X', 'Button Y', 'Trigger', 'Grip', or 'Bumper'");
                     break;
+            }
+
+            // Debug information
+            if (isPressed)
+            {
+                Debug.Log($"Button {button.buttonName} is pressed!");
             }
 
             // Update button visuals
             if (isPressed)
             {
-                ApplyButtonEffect(button, button.pressedColor, true);
+                ApplyButtonEffect(button, button.pressedColor);
             }
             else if (wasPressed)
             {
-                ApplyButtonEffect(button, button.hoveredColor, false);
+                ApplyButtonEffect(button, button.hoveredColor);
             }
             else
             {
-                ApplyButtonEffect(button, button.normalColor, false);
+                ApplyButtonEffect(button, button.normalColor);
             }
 
             previousButtonStates[button.buttonName] = isPressed;
         }
     }
 
-    private void ApplyButtonEffect(ButtonVisuals button, Color color, bool isPressed)
+    private void ApplyButtonEffect(ButtonVisuals button, Color color)
     {
-        // Update button material
+        // Set the original material with the specified color
         Material[] materials = button.buttonMeshRenderer.materials;
         materials[0] = button.originalMaterial;
         materials[0].color = color;
@@ -244,12 +164,6 @@ public class XRButtonVisualFeedback : MonoBehaviour
         materials[1].color = new Color(color.r, color.g, color.b, 0.5f);
         
         button.buttonMeshRenderer.materials = materials;
-
-        // Update image if present
-        if (button.useImage && button.imageComponent != null)
-        {
-            button.imageComponent.color = color;
-        }
     }
 
     private void OnDestroy()
