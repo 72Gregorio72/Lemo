@@ -1051,10 +1051,10 @@ MonoBehaviour:
     sceneIndex: 2
     thumbnailPath: 
     description: metti alla prova la tua memoria! Ma attento a
-  - sceneName: Coming Soon
-    sceneIndex: 10
+  - sceneName: Paint
+    sceneIndex: 3
     thumbnailPath: 
-    description: Coming soon
+    description: tira palle sul muro
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
