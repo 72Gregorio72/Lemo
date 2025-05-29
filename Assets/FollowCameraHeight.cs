@@ -17,6 +17,14 @@ public class FollowCameraHeight : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (cameraObject == null)
+        {
+            cameraObject = Camera.main.gameObject; // Assign the main camera if not set
+        }
+        if (cameraObject == null)
+        {
+            cameraObject = Camera.main.gameObject; // Assign the main camera if not set
+        }
         if (currentRow.tag == "UpperRow")
         {
             this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y + 2f, this.transform.position.z);
