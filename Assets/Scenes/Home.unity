@@ -298,7 +298,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   carousel360: {fileID: 950514335}
-  carouselScene: {fileID: 700237513}
+  carouselScene: {fileID: 7937195835091108391}
   inputThreshold: 0.5
   scrollCooldown: 0.25
   fadeOutDuration: 4
@@ -987,111 +987,6 @@ RectTransform:
   m_AnchoredPosition: {x: -27.600006, y: -280}
   m_SizeDelta: {x: 848.9, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &700237509
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 700237512}
-  - component: {fileID: 700237513}
-  - component: {fileID: 700237514}
-  - component: {fileID: 700237515}
-  m_Layer: 5
-  m_Name: 'CarouselLayout [SCENE]'
-  m_TagString: SceneUI
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &700237512
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 700237509}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1245141214}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 2048, y: 1280}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &700237513
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 700237509}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ae3ab77cd3761048bc6ad0b22d3db17, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _defaultSelectedIndex: 1
-  _scroll: 2
-  _spacing: 290
-  _zOffset: 13
-  _yOffset: 2
-  _rotationY: 10
-  _scaleFactor: 0.9
-  _spacingModMulti: -0.008
-  _depthModMulti: 0.2
-  sceneElements:
-  - sceneName: Memory
-    sceneIndex: 2
-    thumbnailPath: 
-    description: metti alla prova la tua memoria! Ma attento a
-  - sceneName: Paint
-    sceneIndex: 3
-    thumbnailPath: 
-    description: tira palle sul muro
-  _enableSnapping: 1
-  _snapSpeed: 15
-  _smoothClamp: 1
-  _content: {fileID: 700237512}
-  _itemPrefab: {fileID: 4337936954930267153, guid: d68ece89dcbd5c74e87e32bd647b7421, type: 3}
-  scrollLerpSpeed: 10
-  OnValueChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  transitionDuration: 0.5
-  easeType: 27
-  scaleMultiplier: 0.8
---- !u!114 &700237514
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 700237509}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8f3f48ab868ba1428eec4695e06482f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneCarousel: {fileID: 700237513}
---- !u!225 &700237515
-CanvasGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 700237509}
-  m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
-  m_IgnoreParentGroups: 0
 --- !u!1 &756192406
 GameObject:
   m_ObjectHideFlags: 0
@@ -1636,7 +1531,7 @@ RectTransform:
   m_Children:
   - {fileID: 695366243}
   - {fileID: 950514333}
-  - {fileID: 700237512}
+  - {fileID: 8878441536361680921}
   - {fileID: 981101239}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2200,7 +2095,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ui360: {fileID: 950514332}
-  uiScene: {fileID: 700237509}
+  uiScene: {fileID: 230106463874518182}
   transitionDuration: 2
   easeType: 18
   scaleMultiplier: 0.1
@@ -2363,6 +2258,111 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &230106463874518182
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8878441536361680921}
+  - component: {fileID: 7937195835091108391}
+  - component: {fileID: 3756226752613055399}
+  - component: {fileID: 3743632275602628845}
+  m_Layer: 5
+  m_Name: 'CarouselLayout [SCENE]'
+  m_TagString: SceneUI
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!225 &3743632275602628845
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230106463874518182}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &3756226752613055399
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230106463874518182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8f3f48ab868ba1428eec4695e06482f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneCarousel: {fileID: 7937195835091108391}
+--- !u!114 &7937195835091108391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230106463874518182}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ae3ab77cd3761048bc6ad0b22d3db17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _defaultSelectedIndex: 1
+  _scroll: 2
+  _spacing: 290
+  _zOffset: 13
+  _yOffset: 2
+  _rotationY: 10
+  _scaleFactor: 0.9
+  _spacingModMulti: -0.008
+  _depthModMulti: 0.2
+  sceneElements:
+  - sceneName: Memory
+    sceneIndex: 2
+    thumbnailPath: 
+    description: metti alla prova la tua memoria! Ma attento a
+  - sceneName: Paint
+    sceneIndex: 3
+    thumbnailPath: 
+    description: tira palle sul muro
+  _enableSnapping: 1
+  _snapSpeed: 15
+  _smoothClamp: 1
+  _content: {fileID: 8878441536361680921}
+  _itemPrefab: {fileID: 4337936954930267153, guid: d68ece89dcbd5c74e87e32bd647b7421, type: 3}
+  scrollLerpSpeed: 10
+  OnValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  transitionDuration: 0.5
+  easeType: 27
+  scaleMultiplier: 0.8
+--- !u!224 &8878441536361680921
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 230106463874518182}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1245141214}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 2048, y: 1280}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
