@@ -6,17 +6,30 @@ using DG.Tweening;
 
 public class XRSceneInputManager : MonoBehaviour
 {
-    [Header("Button Events")]
-    public UnityEvent OnPrimaryButtonPressed;
-    public UnityEvent OnPrimaryButtonReleased;
-    
-    public UnityEvent OnSecondaryButtonPressed;
-    public UnityEvent OnSecondaryButtonReleased;
-    
-    public UnityEvent OnGripButtonPressed;
-    public UnityEvent OnGripButtonReleased;
+    [Header("Left Controller Events")]
+    [Space(5)]
+    public UnityEvent OnLeftPrimaryButtonPressed;
+    public UnityEvent OnLeftPrimaryButtonReleased;
+    [Space(5)]
+    public UnityEvent OnLeftSecondaryButtonPressed;
+    public UnityEvent OnLeftSecondaryButtonReleased;
+    [Space(5)]
+    public UnityEvent OnLeftGripButtonPressed;
+    public UnityEvent OnLeftGripButtonReleased;
+
+    [Header("Right Controller Events")]
+    [Space(5)]
+    public UnityEvent OnRightPrimaryButtonPressed;
+    public UnityEvent OnRightPrimaryButtonReleased;
+    [Space(5)]
+    public UnityEvent OnRightSecondaryButtonPressed;
+    public UnityEvent OnRightSecondaryButtonReleased;
+    [Space(5)]
+    public UnityEvent OnRightGripButtonPressed;
+    public UnityEvent OnRightGripButtonReleased;
 
     [Header("Return To Menu Settings")]
+    [Space(5)]
     [SerializeField] private GameObject returnToMenuPrefab;
     [SerializeField] private Transform xrOrigin; // Reference to XR Origin transform
     [SerializeField] private float spawnDistance = 2f; // Distance in meters from XR Origin
@@ -27,6 +40,13 @@ public class XRSceneInputManager : MonoBehaviour
     private Dictionary<InputDevice, bool> previousSecondaryStates = new();
     private Dictionary<InputDevice, bool> previousGripStates = new();
     private Dictionary<InputDevice, bool> previousTriggerStates = new();
+
+    private bool isLeftPrimaryOn;
+    private bool isRightPrimaryOn;
+    private bool isLeftSecondaryOn;
+    private bool isRightSecondaryOn;
+    private bool isLeftGripOn;
+    private bool isRightGripOn;
 
     void Start()
     {
@@ -46,11 +66,21 @@ public class XRSceneInputManager : MonoBehaviour
 
                 if (isPrimaryHeld && !wasPrimaryHeld)
                 {
-                    OnPrimaryButtonPressed?.Invoke();
-                }
-                else if (!isPrimaryHeld && wasPrimaryHeld)
-                {
-                    OnPrimaryButtonReleased?.Invoke();
+                    bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
+                    bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
+
+                    if (isLeft)
+                    {
+                        isLeftPrimaryOn = !isLeftPrimaryOn;
+                        if (isLeftPrimaryOn) OnLeftPrimaryButtonPressed?.Invoke();
+                        else OnLeftPrimaryButtonReleased?.Invoke();
+                    }
+                    else if (isRight)
+                    {
+                        isRightPrimaryOn = !isRightPrimaryOn;
+                        if (isRightPrimaryOn) OnRightPrimaryButtonPressed?.Invoke();
+                        else OnRightPrimaryButtonReleased?.Invoke();
+                    }
                 }
 
                 previousPrimaryStates[device] = isPrimaryHeld;
@@ -63,11 +93,21 @@ public class XRSceneInputManager : MonoBehaviour
 
                 if (isSecondaryHeld && !wasSecondaryHeld)
                 {
-                    OnSecondaryButtonPressed?.Invoke();
-                }
-                else if (!isSecondaryHeld && wasSecondaryHeld)
-                {
-                    OnSecondaryButtonReleased?.Invoke();
+                    bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
+                    bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
+
+                    if (isLeft)
+                    {
+                        isLeftSecondaryOn = !isLeftSecondaryOn;
+                        if (isLeftSecondaryOn) OnLeftSecondaryButtonPressed?.Invoke();
+                        else OnLeftSecondaryButtonReleased?.Invoke();
+                    }
+                    else if (isRight)
+                    {
+                        isRightSecondaryOn = !isRightSecondaryOn;
+                        if (isRightSecondaryOn) OnRightSecondaryButtonPressed?.Invoke();
+                        else OnRightSecondaryButtonReleased?.Invoke();
+                    }
                 }
 
                 previousSecondaryStates[device] = isSecondaryHeld;
@@ -80,11 +120,21 @@ public class XRSceneInputManager : MonoBehaviour
 
                 if (isGripHeld && !wasGripHeld)
                 {
-                    OnGripButtonPressed?.Invoke();
-                }
-                else if (!isGripHeld && wasGripHeld)
-                {
-                    OnGripButtonReleased?.Invoke();
+                    bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
+                    bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
+
+                    if (isLeft)
+                    {
+                        isLeftGripOn = !isLeftGripOn;
+                        if (isLeftGripOn) OnLeftGripButtonPressed?.Invoke();
+                        else OnLeftGripButtonReleased?.Invoke();
+                    }
+                    else if (isRight)
+                    {
+                        isRightGripOn = !isRightGripOn;
+                        if (isRightGripOn) OnRightGripButtonPressed?.Invoke();
+                        else OnRightGripButtonReleased?.Invoke();
+                    }
                 }
 
                 previousGripStates[device] = isGripHeld;
