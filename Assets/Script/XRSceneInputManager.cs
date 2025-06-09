@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.XR;
 using DG.Tweening;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 public class XRSceneInputManager : MonoBehaviour
 {
@@ -31,9 +33,13 @@ public class XRSceneInputManager : MonoBehaviour
     [Header("Return To Menu Settings")]
     [Space(5)]
     [SerializeField] private GameObject returnToMenuPrefab;
-    [SerializeField] private Transform xrOrigin; // Reference to XR Origin transform
-    [SerializeField] private float spawnDistance = 2f; // Distance in meters from XR Origin
-    [SerializeField] private float spawnHeight = 0f; // Vertical offset from camera forward
+    [SerializeField] private Transform xrOrigin;
+    [SerializeField] private float spawnDistance = 2f;
+    [SerializeField] private float spawnHeight = 0f;
+    [SerializeField] private float menuAnimationDuration = 0.5f;
+    [SerializeField] private Ease menuShowEase = Ease.OutBack;
+    [SerializeField] private Ease menuHideEase = Ease.InBack;
+    [SerializeField] private float menuOffsetDistance = 0.5f;
 
     private List<InputDevice> devices = new();
     private Dictionary<InputDevice, bool> previousPrimaryStates = new();
@@ -47,10 +53,18 @@ public class XRSceneInputManager : MonoBehaviour
     private bool isRightSecondaryOn;
     private bool isLeftGripOn;
     private bool isRightGripOn;
+    private bool isMenuVisible;
+    private GameObject currentMenuInstance;
+    private Sequence menuAnimationSequence;
+    private Volume globalVolume;
+    private DepthOfField depthOfField;
+    private float originalFocusDistance;
+    private float originalFocusLength;
+    private float originalAperture;
 
-    void Start()
+    private void Start()
     {
-        InputDevices.GetDevices(devices);
+        
     }
 
     void Update()
@@ -177,25 +191,58 @@ public class XRSceneInputManager : MonoBehaviour
             return;
         }
 
-        // Calculate spawn position
-        Vector3 forward = mainCamera.transform.forward;
-        forward.y = 0; // Zero out vertical component for consistent height
-        forward.Normalize();
+        // Kill any existing animation sequence
+        menuAnimationSequence?.Kill();
 
-        // Calculate position: camera position + forward direction * distance + height offset
-        Vector3 spawnPosition = mainCamera.transform.position + forward * spawnDistance;
-        spawnPosition.y += spawnHeight; // Add height offset
+        if (!isMenuVisible)
+        {
+            // Calculate spawn position
+            Vector3 forward = mainCamera.transform.forward;
+            forward.y = 0;
+            forward.Normalize();
 
-        // Instantiate the return to menu prefab with identity rotation (0,0,0)
-        GameObject menuInstance = Instantiate(returnToMenuPrefab);
-        
-        // Set position and keep original rotation
-        menuInstance.transform.position = spawnPosition;
-        menuInstance.transform.rotation = Quaternion.identity;
+            Vector3 targetPosition = mainCamera.transform.position + forward * spawnDistance;
+            targetPosition.y += spawnHeight;
 
-        // Optional: make the menu face the player
-        menuInstance.transform.LookAt(new Vector3(mainCamera.transform.position.x, menuInstance.transform.position.y, mainCamera.transform.position.z));
-        menuInstance.transform.Rotate(0, 180, 0); // Rotate 180 degrees to face the player
+            // Create or reuse menu instance
+            if (currentMenuInstance == null)
+            {
+                currentMenuInstance = Instantiate(returnToMenuPrefab);
+                currentMenuInstance.transform.position = targetPosition + forward * menuOffsetDistance;
+                currentMenuInstance.transform.rotation = Quaternion.identity;
+                currentMenuInstance.transform.LookAt(new Vector3(mainCamera.transform.position.x, currentMenuInstance.transform.position.y, mainCamera.transform.position.z));
+                currentMenuInstance.transform.Rotate(0, 180, 0);
+            }
+
+            // Show animation
+            menuAnimationSequence = DOTween.Sequence()
+                .Append(currentMenuInstance.transform.DOMove(targetPosition, menuAnimationDuration).SetEase(menuShowEase));
+        }
+        else
+        {
+            // Hide animation
+            Vector3 hidePosition = currentMenuInstance.transform.position + mainCamera.transform.forward * menuOffsetDistance;
+            menuAnimationSequence = DOTween.Sequence()
+                .Append(currentMenuInstance.transform.DOMove(hidePosition, menuAnimationDuration).SetEase(menuHideEase))
+                .OnComplete(() => {
+                    if (currentMenuInstance != null)
+                    {
+                        Destroy(currentMenuInstance);
+                        currentMenuInstance = null;
+                    }
+                });
+        }
+
+        isMenuVisible = !isMenuVisible;
+    }
+
+    private void OnDestroy()
+    {
+        menuAnimationSequence?.Kill();
+        if (currentMenuInstance != null)
+        {
+            Destroy(currentMenuInstance);
+        }
     }
 
     // Optional: Add method to visualize the spawn position in the editor

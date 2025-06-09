@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6853139432367933615
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1421957603116941198}
+  - component: {fileID: 9051881036225729787}
+  - component: {fileID: 4383533785945925595}
+  - component: {fileID: 6071566492907007089}
+  m_Layer: 3
+  m_Name: 'CarouselLayout [SCENE]'
+  m_TagString: SceneUI
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1421957603116941198
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853139432367933615}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.00451, y: 0.00451, z: 0.00451}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 19, y: 4.938657}
+  m_SizeDelta: {x: 2048, y: 1280}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &9051881036225729787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853139432367933615}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ae3ab77cd3761048bc6ad0b22d3db17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _defaultSelectedIndex: 1
+  _scroll: 2
+  _spacing: 290
+  _zOffset: 13
+  _yOffset: 2
+  _rotationY: 10
+  _scaleFactor: 0.9
+  _spacingModMulti: -0.008
+  _depthModMulti: 0.2
+  sceneElements:
+  - sceneName: Memory
+    sceneIndex: 2
+    thumbnailPath: 
+    description: metti alla prova la tua memoria! Ma attento a
+  - sceneName: Paint
+    sceneIndex: 3
+    thumbnailPath: 
+    description: tira palle sul muro
+  _enableSnapping: 1
+  _snapSpeed: 15
+  _smoothClamp: 1
+  _content: {fileID: 1421957603116941198}
+  _itemPrefab: {fileID: 4337936954930267153, guid: ac73aa94cbcd3ce4489645efa70d6015, type: 3}
+  scrollLerpSpeed: 10
+  OnValueChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  transitionDuration: 0.5
+  easeType: 27
+  scaleMultiplier: 0.8
+--- !u!114 &4383533785945925595
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853139432367933615}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8f3f48ab868ba1428eec4695e06482f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneCarousel: {fileID: 9051881036225729787}
+--- !u!225 &6071566492907007089
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6853139432367933615}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
