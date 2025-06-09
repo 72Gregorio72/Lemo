@@ -9,6 +9,10 @@ using System.Globalization;
 using System;
 using UnityEngine.Networking;
 using System.Collections;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
+
 
 namespace HKCarouselLayoutGroup
 {
@@ -64,6 +68,18 @@ namespace HKCarouselLayoutGroup
         // Add new field to track if carousel is interactive
         private bool isCarouselInteractive = true;
 
+        [Header("Scene Loading")]
+        [Tooltip("Target post exposure value to lerp to")]
+        public float targetPostExposure = -200f;
+        [Tooltip("Initial post exposure value (dark)")]
+        private const float INITIAL_POST_EXPOSURE = 0f;
+        [Tooltip("How long the fade should take")]
+        public float fadeDuration = 1.5f;
+
+        private Volume globalVolume;
+        private ColorAdjustments colorAdjustments;
+        private bool isFading = false;
+
         private string RatingFilePath => 
 #if UNITY_EDITOR
             "Rating/Rating";  // Resources path for editor
@@ -108,6 +124,21 @@ namespace HKCarouselLayoutGroup
 
             // Initialize rating system
             InitializeRatingSystem();
+
+            // Find the global volume in the scene
+            globalVolume = FindFirstObjectByType<Volume>();
+
+            if (globalVolume == null)
+            {
+                Debug.LogWarning("Global Volume not found in scene.");
+                return;
+            }
+
+            // Try to get Color Adjustments override
+            if (!globalVolume.profile.TryGet(out colorAdjustments))
+            {
+                Debug.LogError("Color Adjustments not found in Global Volume profile.");
+            }
         }
 
         private void InitializeRatingSystem()
@@ -342,6 +373,67 @@ namespace HKCarouselLayoutGroup
             }
         }
 
+        private float EaseInOutCubic(float t)
+        {
+            return t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
+        }
+
+        private IEnumerator FadeOutAndLoadScene(string sceneName, int sceneIndex)
+        {
+            
+
+            isFading = true;
+            float elapsedTime = 0f;
+            float startValue = colorAdjustments.postExposure.value;
+            float targetValue = -200f; // Target dark value
+
+            Debug.Log($"Starting fade from {startValue} to {targetValue}");
+
+            // First fade to black
+            while (elapsedTime < fadeDuration)
+            {
+                elapsedTime += Time.deltaTime;
+                float t = elapsedTime / fadeDuration;
+                
+                // Apply easing to the fade
+                float easedT = EaseInOutCubic(t);
+                colorAdjustments.postExposure.value = Mathf.Lerp(startValue, targetValue, easedT);
+
+                yield return null;
+            }
+
+            // Ensure we reach the target value
+            colorAdjustments.postExposure.value = targetValue;
+            Debug.Log("Fade complete, starting async scene load...");
+
+            // Now that we're at -200, start loading the scene asynchronously
+            AsyncOperation asyncLoad;
+            if (!string.IsNullOrEmpty(sceneName))
+            {
+                asyncLoad = SceneManager.LoadSceneAsync(sceneName);
+            }
+            else if (sceneIndex >= 0)
+            {
+                asyncLoad = SceneManager.LoadSceneAsync(sceneIndex);
+            }
+            else
+            {
+                isFading = false;
+                yield break;
+            }
+
+            // Wait for the scene to finish loading
+            while (!asyncLoad.isDone)
+            {
+                float progress = Mathf.Clamp01(asyncLoad.progress / 0.9f);
+                Debug.Log($"Loading scene: {progress * 100}%");
+                yield return null;
+            }
+
+            Debug.Log("Scene load complete");
+            isFading = false;
+        }
+
         private void PlaySelectedMedia()
         {
             Debug.Log("PlaySelectedMedia called");
@@ -382,41 +474,8 @@ namespace HKCarouselLayoutGroup
 
                 Debug.Log($"Scene Data - Name: '{sceneData.sceneName}', Index: {sceneData.sceneIndex}, Description: '{sceneData.description}'");
 
-                // Try loading by name first
-                if (!string.IsNullOrEmpty(sceneData.sceneName))
-                {
-                    try
-                    {
-                        Debug.Log($"Attempting to load scene by name: {sceneData.sceneName}");
-                        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneData.sceneName);
-                        Debug.Log($"Successfully initiated scene load by name: {sceneData.sceneName}");
-                        return;
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogWarning($"Failed to load scene by name: {sceneData.sceneName}. Error: {e.Message}. Trying index instead...");
-                    }
-                }
-
-                // If name loading failed or wasn't possible, try loading by index
-                if (sceneData.sceneIndex >= 0)
-                {
-                    try
-                    {
-                        Debug.Log($"Attempting to load scene by index: {sceneData.sceneIndex}");
-                        UnityEngine.SceneManagement.SceneManager.LoadScene(sceneData.sceneIndex);
-                        Debug.Log($"Successfully initiated scene load by index: {sceneData.sceneIndex}");
-                    }
-                    catch (System.Exception e)
-                    {
-                        Debug.LogError($"Failed to load scene by index: {sceneData.sceneIndex}. Error: {e.Message}");
-                        Debug.LogError("Make sure the scene is added to Build Settings and the build index matches!");
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"Invalid scene index: {sceneData.sceneIndex} for scene: {sceneData.sceneName}");
-                }
+                // Start the fade out and scene load coroutine
+                StartCoroutine(FadeOutAndLoadScene(sceneData.sceneName, sceneData.sceneIndex));
                 return;
             }
             // If 360 UI is active, handle 360 content

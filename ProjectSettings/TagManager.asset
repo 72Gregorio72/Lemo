@@ -12,11 +12,21 @@ TagManager:
   - RateUs
   - 360UI
   - SceneUI
+  - UpperRow
+  - MiddleRow
+  - HandHitbox
+  - LowerRow
+  - GameManager
+  - Red
+  - Black
+  - Blue
+  - Yellow
+  - Green
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Menu
   - Water
   - UI
   - 
