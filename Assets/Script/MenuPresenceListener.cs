@@ -60,7 +60,7 @@ public class MenuPresenceListener : MonoBehaviour
         // If our tracked instance was destroyed, transition back to initial settings
         else if (currentMenuInstance == null && depthOfField != null)
         {
-            Debug.Log("[MenuPresenceListener] Menu instance is no longer in the scene");
+            //Debug.Log("[MenuPresenceListener] Menu instance is no longer in the scene");
             TransitionToInitialFocus();
         }
     }

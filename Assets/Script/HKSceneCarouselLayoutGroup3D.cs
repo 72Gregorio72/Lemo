@@ -90,6 +90,7 @@ namespace HKCarouselLayoutGroup
 
         public void SimulateScroll(float direction)
         {
+            Debug.Log($"Simulating scroll with direction: {direction}");
             if (direction == 0 || _items.Count == 0 || isScrolling)
                 return;
 
