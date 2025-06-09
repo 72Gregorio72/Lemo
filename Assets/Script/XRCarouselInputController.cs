@@ -107,6 +107,14 @@ namespace HKCarouselLayoutGroup
             public int count;
         }
 
+        public static int CurrentTriggerPressCount { get; private set; }
+
+        private void UpdateTriggerCount()
+        {
+            triggerPressCount++;
+            CurrentTriggerPressCount = triggerPressCount;
+        }
+
         void Start()
         {
             InputDevices.GetDevices(devices);
@@ -501,7 +509,7 @@ namespace HKCarouselLayoutGroup
                     return;
                 }
 
-                triggerPressCount++;
+                UpdateTriggerCount();
                 bool shouldFadeOut = triggerPressCount % 2 != 0;
 
                 // Handle 360 image

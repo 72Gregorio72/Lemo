@@ -3,46 +3,43 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.XR;
 using DG.Tweening;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using HKCarouselLayoutGroup;
+using UnityEngine.SceneManagement;
 
 namespace HKCarouselLayoutGroup
 {
-
     public class XRSceneInputManager : MonoBehaviour
     {
+        [Header("Target GameObject")]
+        [SerializeField] private GameObject targetObject;
+        [SerializeField] private float animationDuration = 0.3f;
+
+        [Header("Carousel Reference")]
+        [SerializeField] private HKSceneCarouselLayoutGroup3D carousel;
+
+        [Header("Input Settings")]
+        [SerializeField] private float inputThreshold = 0.5f;
+        [SerializeField] private float scrollCooldown = 0.25f;
+
+        [Header("Scene Loading")]
+        [SerializeField] private float fadeDuration = 1.5f;
+        [SerializeField] private float targetPostExposure = -200f;
+
         [Header("Left Controller Events")]
-        [Space(5)]
         public UnityEvent OnLeftPrimaryButtonPressed;
         public UnityEvent OnLeftPrimaryButtonReleased;
-        [Space(5)]
         public UnityEvent OnLeftSecondaryButtonPressed;
         public UnityEvent OnLeftSecondaryButtonReleased;
-        [Space(5)]
         public UnityEvent OnLeftGripButtonPressed;
         public UnityEvent OnLeftGripButtonReleased;
 
         [Header("Right Controller Events")]
-        [Space(5)]
         public UnityEvent OnRightPrimaryButtonPressed;
         public UnityEvent OnRightPrimaryButtonReleased;
-        [Space(5)]
         public UnityEvent OnRightSecondaryButtonPressed;
         public UnityEvent OnRightSecondaryButtonReleased;
-        [Space(5)]
         public UnityEvent OnRightGripButtonPressed;
         public UnityEvent OnRightGripButtonReleased;
-
-        [Header("Return To Menu Settings")]
-        [Space(5)]
-        [SerializeField] private GameObject returnToMenuPrefab;
-        [SerializeField] private Transform xrOrigin;
-        [SerializeField] private float spawnDistance = 2f;
-        [SerializeField] private float spawnHeight = 0f;
-        [SerializeField] private float menuAnimationDuration = 0.5f;
-        [SerializeField] private Ease menuShowEase = Ease.OutBack;
-        [SerializeField] private Ease menuHideEase = Ease.InBack;
-        [SerializeField] private float menuOffsetDistance = 0.5f;
 
         private List<InputDevice> devices = new();
         private Dictionary<InputDevice, bool> previousPrimaryStates = new();
@@ -56,32 +53,31 @@ namespace HKCarouselLayoutGroup
         private bool isRightSecondaryOn;
         private bool isLeftGripOn;
         private bool isRightGripOn;
-        private bool isMenuVisible;
-        private GameObject currentMenuInstance;
-        private Sequence menuAnimationSequence;
-        private Volume globalVolume;
-        private DepthOfField depthOfField;
-        private float originalFocusDistance;
-        private float originalFocusLength;
-        private float originalAperture;
-
-        [SerializeField] private HKSceneCarouselLayoutGroup3D carouselScene;  // For Scene UI
+        private bool isLeftTriggerOn;
+        private bool isRightTriggerOn;
         private float cooldownTimer = 0f;
-        [SerializeField] private float inputThreshold = 0.5f;
-        [SerializeField] private float scrollCooldown = 0.25f;
-
+        private Vector3 originalScale;
+        private bool isFading = false;
+        private bool isObjectShown = false;
 
         private void Start()
         {
+            if (targetObject != null)
+            {
+                originalScale = targetObject.transform.localScale;
+                targetObject.SetActive(false);
+            }
 
+            if (carousel == null)
+            {
+                Debug.LogWarning("Carousel reference not set in XRSceneInputManager!");
+            }
         }
 
-        void Update()
+        private void Update()
         {
-            cooldownTimer -= Time.deltaTime;
-            TryFindCarouselScene();
-
             InputDevices.GetDevices(devices);
+            cooldownTimer -= Time.deltaTime;
 
             foreach (var device in devices)
             {
@@ -92,16 +88,13 @@ namespace HKCarouselLayoutGroup
 
                     if (isPrimaryHeld && !wasPrimaryHeld)
                     {
-                        bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
-                        bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
-
-                        if (isLeft)
+                        if (device.characteristics.HasFlag(InputDeviceCharacteristics.Left))
                         {
                             isLeftPrimaryOn = !isLeftPrimaryOn;
                             if (isLeftPrimaryOn) OnLeftPrimaryButtonPressed?.Invoke();
                             else OnLeftPrimaryButtonReleased?.Invoke();
                         }
-                        else if (isRight)
+                        else if (device.characteristics.HasFlag(InputDeviceCharacteristics.Right))
                         {
                             isRightPrimaryOn = !isRightPrimaryOn;
                             if (isRightPrimaryOn) OnRightPrimaryButtonPressed?.Invoke();
@@ -119,16 +112,13 @@ namespace HKCarouselLayoutGroup
 
                     if (isSecondaryHeld && !wasSecondaryHeld)
                     {
-                        bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
-                        bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
-
-                        if (isLeft)
+                        if (device.characteristics.HasFlag(InputDeviceCharacteristics.Left))
                         {
                             isLeftSecondaryOn = !isLeftSecondaryOn;
                             if (isLeftSecondaryOn) OnLeftSecondaryButtonPressed?.Invoke();
                             else OnLeftSecondaryButtonReleased?.Invoke();
                         }
-                        else if (isRight)
+                        else if (device.characteristics.HasFlag(InputDeviceCharacteristics.Right))
                         {
                             isRightSecondaryOn = !isRightSecondaryOn;
                             if (isRightSecondaryOn) OnRightSecondaryButtonPressed?.Invoke();
@@ -146,16 +136,13 @@ namespace HKCarouselLayoutGroup
 
                     if (isGripHeld && !wasGripHeld)
                     {
-                        bool isLeft = device.characteristics.HasFlag(InputDeviceCharacteristics.Left);
-                        bool isRight = device.characteristics.HasFlag(InputDeviceCharacteristics.Right);
-
-                        if (isLeft)
+                        if (device.characteristics.HasFlag(InputDeviceCharacteristics.Left))
                         {
                             isLeftGripOn = !isLeftGripOn;
                             if (isLeftGripOn) OnLeftGripButtonPressed?.Invoke();
                             else OnLeftGripButtonReleased?.Invoke();
                         }
-                        else if (isRight)
+                        else if (device.characteristics.HasFlag(InputDeviceCharacteristics.Right))
                         {
                             isRightGripOn = !isRightGripOn;
                             if (isRightGripOn) OnRightGripButtonPressed?.Invoke();
@@ -166,169 +153,158 @@ namespace HKCarouselLayoutGroup
                     previousGripStates[device] = isGripHeld;
                 }
 
-                // TRIGGER BUTTON
+                // TRIGGER BUTTON - Handle object spawning or scene loading
                 if (device.TryGetFeatureValue(CommonUsages.triggerButton, out bool isTriggerHeld))
                 {
                     previousTriggerStates.TryGetValue(device, out bool wasTriggerHeld);
 
                     if (isTriggerHeld && !wasTriggerHeld)
                     {
-                        SpawnReturnToMenuPrefab();
+                        if (device.characteristics.HasFlag(InputDeviceCharacteristics.Left) || 
+                            device.characteristics.HasFlag(InputDeviceCharacteristics.Right))
+                        {
+                            HandleTriggerPress();
+                        }
                     }
 
                     previousTriggerStates[device] = isTriggerHeld;
                 }
 
-                // THUMBSTICK - Process for both carousels based on which UI is active
+                // THUMBSTICK - Handle carousel navigation
                 if (device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
                 {
-                    if (cooldownTimer <= 0f)
+                    if (cooldownTimer <= 0f && carousel != null)
                     {
-
-                        GameObject sceneUI = GameObject.FindGameObjectWithTag("SceneUI");
-
-                        // Handle Scene UI Carousel
-                        if (sceneUI != null && sceneUI.activeInHierarchy && carouselScene != null)
+                        if (axis.x > inputThreshold)
                         {
-                            if (axis.x > inputThreshold)
-                            {
-                                carouselScene.SimulateScroll(-1);
-                                cooldownTimer = scrollCooldown;
-                                Debug.Log("Scrolling right in Scene UI Carousel");
-                            }
-                            else if (axis.x < -inputThreshold)
-                            {
-                                carouselScene.SimulateScroll(1);
-                                cooldownTimer = scrollCooldown;
-                                Debug.Log("Scrolling left in Scene UI Carousel");
-                            }
+                            carousel.SimulateScroll(-1);
+                            cooldownTimer = scrollCooldown;
+                        }
+                        else if (axis.x < -inputThreshold)
+                        {
+                            carousel.SimulateScroll(1);
+                            cooldownTimer = scrollCooldown;
                         }
                     }
                 }
             }
         }
 
-        private void TryFindCarouselScene()
+        private void HandleTriggerPress()
         {
-            if (carouselScene == null)
-            {
-                var sceneObj = GameObject.FindGameObjectWithTag("SceneUI");
-                if (sceneObj != null && sceneObj.activeInHierarchy)
-                {
-                    carouselScene = sceneObj.GetComponentInChildren<HKSceneCarouselLayoutGroup3D>();
-                    if(carouselScene != null)
-                    {
-                        Debug.Log("Found HKSceneCarouselLayoutGroup3D in Scene UI");
-                    }
-                    else
-                    {
-                        Debug.LogWarning("HKSceneCarouselLayoutGroup3D component not found in Scene UI.");
-                    }
+            if (carousel == null) return;
 
-                }
+            // If object is not shown yet, show it
+            if (!isObjectShown)
+            {
+                ShowObjectWithAnimation();
+                isObjectShown = true;
+                return;
             }
 
+            // Object is shown, check current index
+            int currentIndex = carousel.GetTrueSelectedIndex();
+            var sceneData = carousel.GetElementDataFromIndex(currentIndex);
+
+            if (currentIndex == 0)
+            {
+                // Hide the object
+                HideObjectWithAnimation();
+                isObjectShown = false;
+            }
+            else if (sceneData != null)
+            {
+                // Load the scene
+                StartCoroutine(FadeOutAndLoadScene(sceneData.sceneName, sceneData.sceneIndex));
+            }
         }
 
-
-
-        private void SpawnReturnToMenuPrefab()
+        private System.Collections.IEnumerator FadeOutAndLoadScene(string sceneName, int sceneIndex)
         {
-            if (returnToMenuPrefab == null)
+            if (isFading) yield break;
+            isFading = true;
+
+            // Find the global volume
+            var globalVolume = FindFirstObjectByType<UnityEngine.Rendering.Volume>();
+            if (globalVolume == null)
             {
-                Debug.LogError("[SpawnReturnToMenuPrefab] Return to menu prefab is not assigned!");
-                return;
+                Debug.LogError("Global Volume not found in scene!");
+                isFading = false;
+                yield break;
             }
 
-            if (xrOrigin == null)
+            // Get color adjustments
+            UnityEngine.Rendering.Universal.ColorAdjustments colorAdjustments;
+            if (!globalVolume.profile.TryGet(out colorAdjustments))
             {
-                Debug.LogError("[SpawnReturnToMenuPrefab] XR Origin reference is missing!");
-                return;
+                Debug.LogError("Color Adjustments not found in Global Volume profile!");
+                isFading = false;
+                yield break;
             }
 
-            // Find the camera (assuming it's a child of XR Origin)
-            var mainCamera = xrOrigin.GetComponentInChildren<Camera>();
-            if (mainCamera == null)
+            float elapsedTime = 0f;
+            float startValue = colorAdjustments.postExposure.value;
+
+            // Fade to black
+            while (elapsedTime < fadeDuration)
             {
-                Debug.LogError("[SpawnReturnToMenuPrefab] Cannot find camera in XR Origin!");
-                return;
+                elapsedTime += Time.deltaTime;
+                float t = elapsedTime / fadeDuration;
+                float easedT = EaseInOutCubic(t);
+                colorAdjustments.postExposure.value = Mathf.Lerp(startValue, targetPostExposure, easedT);
+                yield return null;
             }
 
-            // Kill any existing animation sequence
-            menuAnimationSequence?.Kill();
+            // Ensure we reach the target value
+            colorAdjustments.postExposure.value = targetPostExposure;
 
-            if (!isMenuVisible)
+            // Load the scene
+            AsyncOperation asyncLoad;
+            if (!string.IsNullOrEmpty(sceneName))
             {
-                // Calculate spawn position
-                Vector3 forward = mainCamera.transform.forward;
-                forward.y = 0;
-                forward.Normalize();
-
-                Vector3 targetPosition = mainCamera.transform.position + forward * spawnDistance;
-                targetPosition.y += spawnHeight;
-
-                // Create or reuse menu instance
-                if (currentMenuInstance == null)
-                {
-                    currentMenuInstance = Instantiate(returnToMenuPrefab);
-                    currentMenuInstance.transform.position = targetPosition + forward * menuOffsetDistance;
-                    currentMenuInstance.transform.rotation = Quaternion.identity;
-                    currentMenuInstance.transform.LookAt(new Vector3(mainCamera.transform.position.x, currentMenuInstance.transform.position.y, mainCamera.transform.position.z));
-                    currentMenuInstance.transform.Rotate(0, 180, 0);
-                }
-
-                // Show animation
-                menuAnimationSequence = DOTween.Sequence()
-                    .Append(currentMenuInstance.transform.DOMove(targetPosition, menuAnimationDuration).SetEase(menuShowEase));
+                asyncLoad = SceneManager.LoadSceneAsync(sceneName);
+            }
+            else if (sceneIndex >= 0)
+            {
+                asyncLoad = SceneManager.LoadSceneAsync(sceneIndex);
             }
             else
             {
-                // Hide animation
-                Vector3 hidePosition = currentMenuInstance.transform.position + mainCamera.transform.forward * menuOffsetDistance;
-                menuAnimationSequence = DOTween.Sequence()
-                    .Append(currentMenuInstance.transform.DOMove(hidePosition, menuAnimationDuration).SetEase(menuHideEase))
-                    .OnComplete(() =>
-                    {
-                        if (currentMenuInstance != null)
-                        {
-                            Destroy(currentMenuInstance);
-                            currentMenuInstance = null;
-                        }
-                    });
+                isFading = false;
+                yield break;
             }
 
-            isMenuVisible = !isMenuVisible;
+            // Wait for the scene to finish loading
+            while (!asyncLoad.isDone)
+            {
+                yield return null;
+            }
+
+            isFading = false;
         }
 
-        private void OnDestroy()
+        private float EaseInOutCubic(float t)
         {
-            menuAnimationSequence?.Kill();
-            if (currentMenuInstance != null)
-            {
-                Destroy(currentMenuInstance);
-            }
+            return t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
         }
 
-        // Optional: Add method to visualize the spawn position in the editor
-        private void OnDrawGizmosSelected()
+        private void ShowObjectWithAnimation()
         {
-            if (xrOrigin != null)
-            {
-                var mainCamera = xrOrigin.GetComponentInChildren<Camera>();
-                if (mainCamera != null)
-                {
-                    Vector3 forward = mainCamera.transform.forward;
-                    forward.y = 0;
-                    forward.Normalize();
+            if (targetObject == null) return;
 
-                    Vector3 spawnPosition = mainCamera.transform.position + forward * spawnDistance;
-                    spawnPosition.y += spawnHeight;
+            targetObject.SetActive(true);
+            targetObject.transform.localScale = Vector3.zero;
+            targetObject.transform.DOScale(originalScale, animationDuration)
+                .SetEase(Ease.OutBack);
+        }
 
-                    Gizmos.color = Color.green;
-                    Gizmos.DrawWireSphere(spawnPosition, 0.2f);
-                    Gizmos.DrawLine(mainCamera.transform.position, spawnPosition);
-                }
-            }
+        private void HideObjectWithAnimation()
+        {
+            if (targetObject == null) return;
+
+            targetObject.transform.DOScale(Vector3.zero, animationDuration)
+                .SetEase(Ease.InBack)
+                .OnComplete(() => targetObject.SetActive(false));
         }
     }
 }
