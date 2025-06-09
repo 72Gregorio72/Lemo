@@ -672,7 +672,7 @@
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "baseMap",
     "m_DefaultReferenceName": "_baseMap",
-    "m_OverrideReferenceName": "",
+    "m_OverrideReferenceName": "_BaseMap",
     "m_GeneratePropertyBlock": true,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",

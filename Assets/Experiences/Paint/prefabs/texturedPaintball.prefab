@@ -4848,10 +4848,9 @@ GameObject:
   - component: {fileID: 702382850140839788}
   - component: {fileID: 6995017165216505359}
   - component: {fileID: 5300829781626239832}
-  - component: {fileID: 6637817471169209697}
   m_Layer: 0
-  m_Name: paintball
-  m_TagString: PaintBall
+  m_Name: texturedPaintball
+  m_TagString: TexturePaintBall
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -4956,7 +4955,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f1d0a503f48e4e14c88d72dd3861eb7a, type: 2}
+  - {fileID: 2100000, guid: b10eabcb4c96e144a8bebfefcb2951e5, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -5108,15 +5107,3 @@ MonoBehaviour:
   m_StartingMultipleGrabTransformers: []
   m_AddDefaultGrabTransformers: 1
   m_FarAttachMode: 0
---- !u!114 &6637817471169209697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3096921748533324792}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c97c572237c0a9644b4bcd8e41c5af52, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 

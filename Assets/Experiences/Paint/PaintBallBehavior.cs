@@ -23,11 +23,22 @@ public class PaintBallBehavior : MonoBehaviour
 
             // Prendi il decal projector
             DecalProjector projector = decal.GetComponent<DecalProjector>();
-            if (projector != null)
+            if (projector != null && this.tag != "TexturePaintBall")
             {
                 // 🔥 CREA nuova istanza del materiale
                 Material decalMatInstance = new Material(projector.material);
                 decalMatInstance.color = paintColor;
+
+                // ASSEGNA nuova istanza
+                projector.material = decalMatInstance;
+            }
+
+            if (projector != null && this.tag == "TexturePaintBall")
+            {
+                // 🔥 CREA nuova istanza del materiale
+                Material decalMatInstance = new Material(projector.material);
+                Texture tex = GetComponent<Renderer>().material.GetTexture("_BaseMap");
+                decalMatInstance.SetTexture("_BaseMap", tex);
 
                 // ASSEGNA nuova istanza
                 projector.material = decalMatInstance;
