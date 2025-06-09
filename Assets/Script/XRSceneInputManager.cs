@@ -78,6 +78,9 @@ namespace HKCarouselLayoutGroup
 
         void Update()
         {
+            cooldownTimer -= Time.deltaTime;
+            TryFindCarouselScene();
+
             InputDevices.GetDevices(devices);
 
             foreach (var device in devices)
@@ -191,16 +194,40 @@ namespace HKCarouselLayoutGroup
                             {
                                 carouselScene.SimulateScroll(-1);
                                 cooldownTimer = scrollCooldown;
+                                Debug.Log("Scrolling right in Scene UI Carousel");
                             }
                             else if (axis.x < -inputThreshold)
                             {
                                 carouselScene.SimulateScroll(1);
                                 cooldownTimer = scrollCooldown;
+                                Debug.Log("Scrolling left in Scene UI Carousel");
                             }
                         }
                     }
                 }
             }
+        }
+
+        private void TryFindCarouselScene()
+        {
+            if (carouselScene == null)
+            {
+                var sceneObj = GameObject.FindGameObjectWithTag("SceneUI");
+                if (sceneObj != null && sceneObj.activeInHierarchy)
+                {
+                    carouselScene = sceneObj.GetComponentInChildren<HKSceneCarouselLayoutGroup3D>();
+                    if(carouselScene != null)
+                    {
+                        Debug.Log("Found HKSceneCarouselLayoutGroup3D in Scene UI");
+                    }
+                    else
+                    {
+                        Debug.LogWarning("HKSceneCarouselLayoutGroup3D component not found in Scene UI.");
+                    }
+
+                }
+            }
+
         }
 
 

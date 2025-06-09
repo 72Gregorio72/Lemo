@@ -4121,7 +4121,7 @@ MonoBehaviour:
   menuShowEase: 27
   menuHideEase: 26
   menuOffsetDistance: 0.5
-  carouselScene: {fileID: 0}
+  carouselScene: {fileID: 9051881036225729787, guid: 1821f9ec076487f44a30b4877fdfa28d, type: 3}
   inputThreshold: 0.5
   scrollCooldown: 0.25
 --- !u!1001 &2000347706
