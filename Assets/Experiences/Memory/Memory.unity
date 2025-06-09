@@ -3717,7 +3717,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 1.83
+      value: -1.15
       objectReference: {fileID: 0}
     - target: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4115,7 +4115,7 @@ MonoBehaviour:
       m_Calls: []
   returnToMenuPrefab: {fileID: 6853139432367933615, guid: 1821f9ec076487f44a30b4877fdfa28d, type: 3}
   xrOrigin: {fileID: 1876217390}
-  spawnDistance: 2
+  spawnDistance: 8
   spawnHeight: 0
   menuAnimationDuration: 1
   menuShowEase: 27

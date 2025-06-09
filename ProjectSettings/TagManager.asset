@@ -22,6 +22,10 @@ TagManager:
   - Blue
   - Yellow
   - Green
+  - Wall
+  - PaintBall
+  - SVImage
+  - TexturePaintBall
   layers:
   - Default
   - TransparentFX
