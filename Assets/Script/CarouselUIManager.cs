@@ -15,7 +15,7 @@ public class CarouselUIManager : MonoBehaviour
     [SerializeField] private float transitionDuration = 0.5f;
     [SerializeField] private Ease easeType = Ease.OutBack;
     [SerializeField] private float scaleMultiplier = 0.8f;
-    
+
     private InputDevice leftController;
     private InputDevice rightController;
     private bool isSceneUIActive = false;
@@ -27,7 +27,7 @@ public class CarouselUIManager : MonoBehaviour
     private void Start()
     {
         Debug.Log("CarouselUIManager: Starting initialization");
-        
+
         // Set initial UI state
         ui360.SetActive(true);
         uiScene.SetActive(false);
@@ -35,14 +35,14 @@ public class CarouselUIManager : MonoBehaviour
         // Set initial scales and alpha
         ui360.transform.localScale = Vector3.one;
         uiScene.transform.localScale = Vector3.one * scaleMultiplier;
-        
+
         // Get or add CanvasGroups
         ui360CanvasGroup = ui360.GetComponent<CanvasGroup>() ?? ui360.AddComponent<CanvasGroup>();
         uiSceneCanvasGroup = uiScene.GetComponent<CanvasGroup>() ?? uiScene.AddComponent<CanvasGroup>();
 
         ui360CanvasGroup.alpha = 1f;
         uiSceneCanvasGroup.alpha = 0f;
-        
+
         // Verify tags
         if (ui360.tag != "360UI")
         {
@@ -72,7 +72,7 @@ public class CarouselUIManager : MonoBehaviour
     private void InitializeDevices()
     {
         var devices = new List<InputDevice>();
-        
+
         // Get left controller if not already valid
         if (!leftController.isValid)
         {
@@ -123,34 +123,38 @@ public class CarouselUIManager : MonoBehaviour
     {
         if (isTransitioning) return;
 
+        // DEBUG: Log current trigger press count
+        //Debug.Log($"[CarouselUIManager] CurrentTriggerPressCount: {XRCarouselInputController.CurrentTriggerPressCount}");
+
+        // Block UI switching if triggerPressCount is even (UI not visible)
+        if (XRCarouselInputController.CurrentTriggerPressCount % 2 != 0)
+        {
+            //Debug.Log("[CarouselUIManager] UI is not visible (even count) – blocking secondary button input");
+            wasSecondaryButtonPressed = false;
+            return;
+        }
+
         bool leftSecondaryPressed = false;
         bool rightSecondaryPressed = false;
 
-        // Check each controller independently
         if (leftController.isValid)
-        {
             leftController.TryGetFeatureValue(CommonUsages.secondaryButton, out leftSecondaryPressed);
-        }
 
         if (rightController.isValid)
-        {
             rightController.TryGetFeatureValue(CommonUsages.secondaryButton, out rightSecondaryPressed);
-        }
 
         bool anySecondaryPressed = leftSecondaryPressed || rightSecondaryPressed;
 
-        // Log button states
-        if (leftSecondaryPressed || rightSecondaryPressed)
-        {
-            Debug.Log($"Secondary button state - Left: {leftSecondaryPressed}, Right: {rightSecondaryPressed}");
-        }
+        if (anySecondaryPressed)
+            //Debug.Log($"[CarouselUIManager] Secondary button pressed – Left: {leftSecondaryPressed}, Right: {rightSecondaryPressed}");
 
         if (anySecondaryPressed && !wasSecondaryButtonPressed)
         {
-            Debug.Log("Secondary button pressed - Triggering UI switch");
+            Debug.Log("[CarouselUIManager] Triggering UI switch (secondary button)");
             isSceneUIActive = !isSceneUIActive;
             TransitionUI();
         }
+
         wasSecondaryButtonPressed = anySecondaryPressed;
     }
 
@@ -199,4 +203,4 @@ public class CarouselUIManager : MonoBehaviour
 
         Debug.Log($"Switched to {(isSceneUIActive ? "Scene UI" : "360 UI")}");
     }
-} 
+}
