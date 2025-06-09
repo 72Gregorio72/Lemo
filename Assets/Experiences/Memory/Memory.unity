@@ -688,7 +688,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   menuPrefabToWatch: {fileID: 6853139432367933615, guid: 1821f9ec076487f44a30b4877fdfa28d, type: 3}
-  menuFocusDistance: 1
+  menuFocusDistance: 3
   transitionDuration: 0.5
   transitionEase: 7
 --- !u!1 &393808145
@@ -4121,6 +4121,9 @@ MonoBehaviour:
   menuShowEase: 27
   menuHideEase: 26
   menuOffsetDistance: 0.5
+  carouselScene: {fileID: 0}
+  inputThreshold: 0.5
+  scrollCooldown: 0.25
 --- !u!1001 &2000347706
 PrefabInstance:
   m_ObjectHideFlags: 0
