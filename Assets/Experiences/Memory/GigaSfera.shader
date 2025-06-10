@@ -2,7 +2,8 @@ Shader "Custom/InsideOutCubemapXR_URP"
 {
     Properties
     {
-        _CubeMap("Cubemap", CUBE) = "" {}
+        _CubeMap("Cubemap", CUBE) = "" {} 
+        _RotationSpeed("Rotation Speed (deg/sec)", Float) = 0.1
     }
 
     SubShader
@@ -27,6 +28,10 @@ Shader "Custom/InsideOutCubemapXR_URP"
 
             TEXTURECUBE(_CubeMap);
             SAMPLER(sampler_CubeMap);
+
+            CBUFFER_START(UnityPerMaterial)
+                float _RotationSpeed;
+            CBUFFER_END
 
             struct Attributes
             {
@@ -53,11 +58,30 @@ Shader "Custom/InsideOutCubemapXR_URP"
                 return OUT;
             }
 
+            // Funzione per ruotare un vettore attorno all'asse Y
+            float3 RotateY(float3 dir, float angleRad)
+            {
+                float s = sin(angleRad);
+                float c = cos(angleRad);
+                float3x3 m = float3x3(
+                    c, 0, s,
+                    0, 1, 0,
+                    -s, 0, c
+                );
+                return mul(m, dir);
+            }
+
             half4 frag (Varyings IN) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(IN);
-                float3 dir = normalize(IN.viewDirWS);
-                return SAMPLE_TEXTURECUBE(_CubeMap, sampler_CubeMap, dir);
+
+                // Calcola l’angolo in radianti: _Time.y è in secondi
+                float angleRad = radians(_RotationSpeed) * _Time.y;
+
+                // Ruota la direzione di vista attorno all’asse Y
+                float3 rotatedDir = RotateY(normalize(IN.viewDirWS), angleRad);
+
+                return SAMPLE_TEXTURECUBE(_CubeMap, sampler_CubeMap, rotatedDir);
             }
             ENDHLSL
         }

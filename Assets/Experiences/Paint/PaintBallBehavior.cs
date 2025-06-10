@@ -5,8 +5,17 @@ public class PaintBallBehavior : MonoBehaviour
 {
     public GameObject splashEffectPrefab; // Prefab con DecalProjector
 
+    private Vector3 randomRotation;
+
+    public Texture paintMaterial; // Materiale della paintball
+
     private void OnCollisionEnter(Collision collision)
     {
+        randomRotation = new Vector3(
+            Random.Range(-45f, 45f),
+            Random.Range(0f, 0f),
+            Random.Range(-45f, 45f)
+        );
         if (collision.gameObject.CompareTag("Wall"))
         {
             ContactPoint contact = collision.contacts[0];
@@ -15,7 +24,7 @@ public class PaintBallBehavior : MonoBehaviour
             GameObject decal = Instantiate(
                 splashEffectPrefab,
                 contact.point + contact.normal * 0.01f,
-                Quaternion.LookRotation(-contact.normal)
+                Quaternion.LookRotation(-contact.normal) * Quaternion.Euler(randomRotation)
             );
 
             // Prendi colore corrente della paintball
@@ -37,7 +46,8 @@ public class PaintBallBehavior : MonoBehaviour
             {
                 // 🔥 CREA nuova istanza del materiale
                 Material decalMatInstance = new Material(projector.material);
-                Texture tex = GetComponent<Renderer>().material.GetTexture("_BaseMap");
+                Texture tex = paintMaterial;
+                decalMatInstance.color = Color.white;
                 decalMatInstance.SetTexture("_BaseMap", tex);
 
                 // ASSEGNA nuova istanza
