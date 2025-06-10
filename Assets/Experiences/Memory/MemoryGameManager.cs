@@ -85,6 +85,7 @@ public class MemoryGameManager : MonoBehaviour
         GameObject card = Instantiate(cardPrefab, position, Quaternion.identity);
         card.GetComponent<MemoryCard>().Init(this);
         card.GetComponent<FollowCameraHeight>().currentRow = cardPosition;
+        card.transform.localScale = new Vector3(1f, 1f, 1f); // Imposta la dimensione della carta
         spawnedCards.Add(card);
     }
 
