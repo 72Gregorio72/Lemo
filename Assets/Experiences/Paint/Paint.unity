@@ -4275,6 +4275,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: PistolaPainter
       objectReference: {fileID: 0}
+    - target: {fileID: 6333190893673238861, guid: 7d5b80ed194e5e64c8cb8759c5803bea, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

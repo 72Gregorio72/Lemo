@@ -4884,6 +4884,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   splashEffectPrefab: {fileID: 5496383472292293606, guid: f6c1cbc208cc980488a27588babff352, type: 3}
+  paintMaterial: {fileID: 2800000, guid: 955dfa226d340f349a022cfd0bae652a, type: 3}
 --- !u!54 &2789892234985660768
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -4955,7 +4956,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: b10eabcb4c96e144a8bebfefcb2951e5, type: 2}
+  - {fileID: 2100000, guid: 9c0af4bc79c5a6147b49aa6e78632362, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
