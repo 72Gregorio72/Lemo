@@ -2379,8 +2379,8 @@ MonoBehaviour:
   _spacingModMulti: -0.008
   _depthModMulti: 0.2
   sceneElements:
-  - sceneName: Memory
-    sceneIndex: 2
+  - sceneName: passtrough
+    sceneIndex: 4
     thumbnailPath: 
     description: metti alla prova la tua memoria! Ma attento a
   - sceneName: Paint
