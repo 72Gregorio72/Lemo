@@ -506,8 +506,8 @@ MonoBehaviour:
     sceneIndex: 1
     thumbnailPath: 
     description: "Si torna sempre dove si \xE8 stati bene"
-  - sceneName: Memory
-    sceneIndex: 2
+  - sceneName: passtrough
+    sceneIndex: 4
     thumbnailPath: 
     description: metti alla prova la tua memoria! Ma attento a
   _enableSnapping: 1
