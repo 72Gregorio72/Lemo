@@ -4848,7 +4848,6 @@ GameObject:
   - component: {fileID: 702382850140839788}
   - component: {fileID: 6995017165216505359}
   - component: {fileID: 5300829781626239832}
-  - component: {fileID: 6637817471169209697}
   m_Layer: 0
   m_Name: paintball
   m_TagString: PaintBall
@@ -4885,6 +4884,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   splashEffectPrefab: {fileID: 5496383472292293606, guid: f6c1cbc208cc980488a27588babff352, type: 3}
+  paintMaterial: {fileID: 0}
 --- !u!54 &2789892234985660768
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5108,15 +5108,3 @@ MonoBehaviour:
   m_StartingMultipleGrabTransformers: []
   m_AddDefaultGrabTransformers: 1
   m_FarAttachMode: 0
---- !u!114 &6637817471169209697
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3096921748533324792}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c97c572237c0a9644b4bcd8e41c5af52, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
