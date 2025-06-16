@@ -27,6 +27,7 @@ TagManager:
   - SVImage
   - TexturePaintBall
   - SpawnBalls
+  - Pencil
   layers:
   - Default
   - TransparentFX
@@ -34,7 +35,7 @@ TagManager:
   - Menu
   - Water
   - UI
-  - 
+  - Wall
   - 
   - 
   - 

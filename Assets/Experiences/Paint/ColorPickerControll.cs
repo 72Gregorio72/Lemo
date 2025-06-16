@@ -83,8 +83,8 @@ public class ColorPickerControll : MonoBehaviour
         outputTexture = new Texture2D(1, 16);
         outputTexture.wrapMode = TextureWrapMode.Clamp;
         outputTexture.name = "OutputTexture";
-        //Color currentColor = Color.HSVToRGB(currentHue, 1, 1);
-        Color currentColor = Color.red;
+        Color currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
+        // Color currentColor = Color.red;
 
         for (int i = 0; i < outputTexture.height; i++)
         {
@@ -96,7 +96,7 @@ public class ColorPickerControll : MonoBehaviour
 
     private void UpdateOutputImage()
     {
-        Color currentColor = Color.HSVToRGB(currentHue, 1, 1);
+        Color currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
         //Color currentColor = Color.red;
         for (int i = 0; i < outputTexture.height; i++)
         {
