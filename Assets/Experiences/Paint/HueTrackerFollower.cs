@@ -47,6 +47,7 @@ public class HueSliderControll : MonoBehaviour
 
             // 6. Aggiorna le texture colore
             colorPicker.UpdateSVImage();
+            Debug.Log("Hue value updated: " + hueSlider.value);
         }
     }
 }

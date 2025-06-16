@@ -1163,8 +1163,8 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 532450578}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 7.4}
+  m_LocalRotation: {x: 0, y: 0.38268343, z: 0, w: 0.92387956}
+  m_LocalPosition: {x: 0, y: 0, z: 0.28}
   m_LocalScale: {x: 0.008, y: 0.008, z: 0.008}
   m_ConstrainProportionsScale: 1
   m_Children:
@@ -1172,10 +1172,10 @@ RectTransform:
   - {fileID: 581900695}
   - {fileID: 737411885}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 45, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 6.47, y: 0}
   m_SizeDelta: {x: 2048, y: 1280}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &565832581
@@ -1399,18 +1399,18 @@ MonoBehaviour:
   _spacingModMulti: -0.008
   _depthModMulti: 0.2
   sceneElements:
-  - sceneName: Continua
-    sceneIndex: 3
-    thumbnailPath: 
-    description: rimani dove sei e continua a metterti alla prova
   - sceneName: Home
     sceneIndex: 1
     thumbnailPath: 
     description: "Si torna sempre dove si \xE8 stati bene"
+  - sceneName: Continua
+    sceneIndex: 3
+    thumbnailPath: 
+    description: rimani dove sei e continua a metterti alla prova
   - sceneName: Paint
     sceneIndex: 3
     thumbnailPath: 
-    description: metti alla prova la tua memoria! Ma attento a
+    description: Divertiti a colorare!
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
