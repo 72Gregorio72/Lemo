@@ -4848,8 +4848,7 @@ GameObject:
   - component: {fileID: 702382850140839788}
   - component: {fileID: 6995017165216505359}
   - component: {fileID: 5300829781626239832}
-  - component: {fileID: 1216867998010722545}
-  - component: {fileID: -6177138688303496315}
+  - component: {fileID: 2574372656691795471}
   m_Layer: 0
   m_Name: texturedPaintball
   m_TagString: TexturePaintBall
@@ -5074,6 +5073,7 @@ MonoBehaviour:
   m_AngularVelocityDamping: 1
   m_AngularVelocityScale: 1
   m_TrackPosition: 1
+  ForceKinematicFalse: 1
   m_SmoothPosition: 0
   m_SmoothPositionAmount: 8
   m_TightenPosition: 0.1
@@ -5110,7 +5110,7 @@ MonoBehaviour:
   m_StartingMultipleGrabTransformers: []
   m_AddDefaultGrabTransformers: 1
   m_FarAttachMode: 0
---- !u!114 &1216867998010722545
+--- !u!114 &2574372656691795471
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -5125,19 +5125,3 @@ MonoBehaviour:
   amplitude: 0.25
   frequency: 1
   massMultiplierOnGrab: 3
---- !u!114 &-6177138688303496315
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3096921748533324792}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec81cac9708298408b674251795d520, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  prefabToSpawn: {fileID: 3096921748533324792}
-  spawnPoint: {fileID: 0}
-  endPoint: {fileID: 0}
-  moveSpeed: 1

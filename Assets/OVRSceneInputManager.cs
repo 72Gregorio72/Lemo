@@ -100,7 +100,10 @@ namespace HKCarouselLayoutGroup
             );
 
             // THUMBSTICK scroll
-            Vector2 axis = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
+            Vector2 leftAxis = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.LTouch);
+            Vector2 rightAxis = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, OVRInput.Controller.RTouch);
+
+            Vector2 axis = leftAxis.magnitude > rightAxis.magnitude ? leftAxis : rightAxis;
             if (carousel != null && cooldownTimer <= 0f)
             {
                 if (axis.x > inputThreshold)
@@ -116,8 +119,10 @@ namespace HKCarouselLayoutGroup
             }
 
             // TRIGGER SCENE HANDLING
-            if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger))
+            if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.LTouch) ||
+                OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.RTouch))
             {
+                Debug.Log("Primary Trigger Pressed");
                 HandleTriggerPress();
             }
 
@@ -141,7 +146,7 @@ namespace HKCarouselLayoutGroup
             int currentIndex = carousel.GetTrueSelectedIndex();
             var sceneData = carousel.GetElementDataFromIndex(currentIndex);
 
-            if (currentIndex == 0)
+            if (currentIndex == 1)
             {
                 // Hide the object
                 HideObjectWithAnimation();

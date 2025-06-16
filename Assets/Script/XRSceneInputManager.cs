@@ -206,7 +206,7 @@ namespace HKCarouselLayoutGroup
             int currentIndex = carousel.GetTrueSelectedIndex();
             var sceneData = carousel.GetElementDataFromIndex(currentIndex);
 
-            if (currentIndex == 0)
+            if (currentIndex == 1)
             {
                 // Hide the object
                 HideObjectWithAnimation();
