@@ -1,4 +1,4 @@
 Position 0 0 0 
 Rotation 0 0 0  
 Audio: un respiro alla volta.mp3
-Description: Ritrova pace e presenza ascoltando semplicemente il tuo respiro.
+Description: Ritrova pace ascoltando semplicemente il tuo respiro.
