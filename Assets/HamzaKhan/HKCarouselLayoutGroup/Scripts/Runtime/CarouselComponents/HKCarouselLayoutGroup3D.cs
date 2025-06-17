@@ -246,11 +246,18 @@ namespace HKCarouselLayoutGroup
                 {
                     if (video == resource)
                     {
-                        string path = Resources.Load<VideoClip>($"Videos/{resourceName}") != null ? "Videos" :
-                                     Resources.Load<VideoClip>($"Videos/Nature/{resourceName}") != null ? "Nature" :
-                                     Resources.Load<VideoClip>($"Videos/Space/{resourceName}") != null ? "Space" : "Unknown";
-                        Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {path}");
-                        return path;
+                        // Get all subfolders in the Videos directory
+                        string[] subfolders = Directory.GetDirectories(Path.Combine(Application.dataPath, "Resources", "Videos"));
+                        foreach (var subfolder in subfolders)
+                        {
+                            string categoryName = Path.GetFileName(subfolder);
+                            string fullPath = $"Videos/{categoryName}/{resourceName}";
+                            if (Resources.Load<VideoClip>(fullPath) != null)
+                            {
+                                Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {categoryName}");
+                                return categoryName;
+                            }
+                        }
                     }
                 }
             }
@@ -261,11 +268,18 @@ namespace HKCarouselLayoutGroup
                 {
                     if (image == resource)
                     {
-                        string path = Resources.Load<Texture2D>($"360 Images/{resourceName}") != null ? "360 Images" :
-                                     Resources.Load<Texture2D>($"360 Images/Nature/{resourceName}") != null ? "Nature" :
-                                     Resources.Load<Texture2D>($"360 Images/Space/{resourceName}") != null ? "Space" : "Unknown";
-                        Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {path}");
-                        return path;
+                        // Get all subfolders in the 360 Images directory
+                        string[] subfolders = Directory.GetDirectories(Path.Combine(Application.dataPath, "Resources", "360 Images"));
+                        foreach (var subfolder in subfolders)
+                        {
+                            string categoryName = Path.GetFileName(subfolder);
+                            string fullPath = $"360 Images/{categoryName}/{resourceName}";
+                            if (Resources.Load<Texture2D>(fullPath) != null)
+                            {
+                                Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {categoryName}");
+                                return categoryName;
+                            }
+                        }
                     }
                 }
             }
