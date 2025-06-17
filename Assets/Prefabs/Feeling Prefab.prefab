@@ -103,6 +103,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  onHoverEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &2299115028799918986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -490,6 +493,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  onHoverEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &5394339001187483055
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -605,6 +611,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  onHoverEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &2264866015096391559
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -707,6 +716,7 @@ GameObject:
   - component: {fileID: 1127377106702113580}
   - component: {fileID: 2586601593836386160}
   - component: {fileID: 8064118192611735898}
+  - component: {fileID: 6072982109905783450}
   m_Layer: 5
   m_Name: Feeling Prefab
   m_TagString: RateUs
@@ -817,6 +827,19 @@ MonoBehaviour:
   holdDuration: 5
   exitTriggered: 0
   experienceName: Unknown
+--- !u!114 &6072982109905783450
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4337936954930267153}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 839c591224b47b1428dec9b8df01efce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  layerToSelect: 100
 --- !u!1 &4961041812089928327
 GameObject:
   m_ObjectHideFlags: 0
@@ -1539,6 +1562,9 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+  onHoverEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &6309492752277874611
 MonoBehaviour:
   m_ObjectHideFlags: 0

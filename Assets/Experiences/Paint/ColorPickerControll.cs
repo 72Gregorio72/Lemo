@@ -22,6 +22,8 @@ public class ColorPickerControll : MonoBehaviour
     [SerializeField]
     MeshRenderer changeThisColour;
 
+    public bool isPaint = false;
+
     // public Material materialToChange;
 
     public Material materialToChange2;
@@ -83,7 +85,11 @@ public class ColorPickerControll : MonoBehaviour
         outputTexture = new Texture2D(1, 16);
         outputTexture.wrapMode = TextureWrapMode.Clamp;
         outputTexture.name = "OutputTexture";
-        Color currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
+        Color currentColor;
+        if (!isPaint)
+            currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
+        else
+            currentColor = Color.HSVToRGB(currentHue, 1f, 1f); // piena saturazione e luminosità per la vernice
         // Color currentColor = Color.red;
 
         for (int i = 0; i < outputTexture.height; i++)
@@ -96,12 +102,16 @@ public class ColorPickerControll : MonoBehaviour
 
     private void UpdateOutputImage()
     {
-        Color currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
+        Color currentColor;
+        if (!isPaint)
+            currentColor = Color.HSVToRGB(currentHue, currentSat, currentVal);
+        else
+            currentColor = Color.HSVToRGB(currentHue, 1f, 1f); // piena saturazione e luminosità per la vernice
         //Color currentColor = Color.red;
-        for (int i = 0; i < outputTexture.height; i++)
-        {
-            outputTexture.SetPixel(0, i, currentColor);
-        }
+            for (int i = 0; i < outputTexture.height; i++)
+            {
+                outputTexture.SetPixel(0, i, currentColor);
+            }
         outputTexture.Apply();
         changeThisColour.GetComponent<MeshRenderer>().material.color = currentColor;
         materialToChange2.color = currentColor;

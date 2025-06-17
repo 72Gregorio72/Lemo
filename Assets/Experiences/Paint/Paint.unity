@@ -3691,7 +3691,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 905616685}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 71d53f65986746b4283bd6725c8caf86, type: 3}
   m_Name: 
@@ -5439,6 +5439,10 @@ PrefabInstance:
     - target: {fileID: 5247492578176605247, guid: 8fe586a38e3e9204797ac47f0ffb6186, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5300829781626239832, guid: 8fe586a38e3e9204797ac47f0ffb6186, type: 3}
+      propertyPath: isForceKinematicFalse
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5300829781626239832, guid: 8fe586a38e3e9204797ac47f0ffb6186, type: 3}
       propertyPath: m_ForceGravityOnDetach
@@ -7706,6 +7710,10 @@ PrefabInstance:
     - target: {fileID: 3735718502512918430, guid: be4f99404334bec45a87afa0da5fc185, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: -6887
+      objectReference: {fileID: 0}
+    - target: {fileID: 3877515772066282696, guid: be4f99404334bec45a87afa0da5fc185, type: 3}
+      propertyPath: isPaint
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3877515772066282696, guid: be4f99404334bec45a87afa0da5fc185, type: 3}
       propertyPath: m_Enabled
