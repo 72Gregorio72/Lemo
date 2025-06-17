@@ -51,7 +51,26 @@ public class LogoFadeAndSpawn : MonoBehaviour
 
     private void GoHomeScene(float delay)
     {
-       SceneManager.LoadScene(1);
+        StartCoroutine(LoadSceneWithDelay(delay));
+    }
+
+    private IEnumerator LoadSceneWithDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(1);
+        asyncLoad.allowSceneActivation = false;
+
+        while (!asyncLoad.isDone)
+        {
+            // Wait until the scene is fully loaded
+            if (asyncLoad.progress >= 0.9f)
+            {
+                // Activate the scene when ready
+                asyncLoad.allowSceneActivation = true;
+            }
+            yield return null;
+        }
     }
 
     private void SetAlpha(float alpha)

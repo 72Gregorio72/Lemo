@@ -1,0 +1,4 @@
+Position 0 0 0 
+Rotation 0 0 0  
+Audio: la transitorietà.mp3
+Description: Un invito a riconoscere che tutto passa, accogliendo il momento presente con fiducia.

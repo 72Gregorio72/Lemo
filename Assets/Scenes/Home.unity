@@ -1144,7 +1144,7 @@ MonoBehaviour:
   _defaultSelectedIndex: 1
   _scroll: 0
   _spacing: 290
-  _zOffset: -5.9
+  _zOffset: 16
   _yOffset: 2
   _rotationY: 10
   _scaleFactor: 0.7
@@ -1155,19 +1155,7 @@ MonoBehaviour:
   _smoothClamp: 1
   _content: {fileID: 950514333}
   _item: {fileID: 4337936954930267153, guid: 6762b17da02d44af78869a0975fb0451, type: 3}
-  _carouselElements:
-  - Name: Il suono della calma
-    ThumbnailPath: Thumbnails/Nature/Il suono della calma
-    Category: Nature
-    IsImage360: 1
-  - Name: lettera introduttiva, un messaggio per te
-    ThumbnailPath: 
-    Category: Nature
-    IsImage360: 1
-  - Name: un luogo sicuro dentro di te
-    ThumbnailPath: Thumbnails/Nature/un luogo sicuro dentro di te
-    Category: Nature
-    IsImage360: 1
+  _carouselElements: []
   _fixedCount: 8
   _useRecycling: 1
   _edge: 3
@@ -2407,7 +2395,7 @@ MonoBehaviour:
   _defaultSelectedIndex: 1
   _scroll: 2
   _spacing: 290
-  _zOffset: -5.9
+  _zOffset: 16
   _yOffset: 2
   _rotationY: 10
   _scaleFactor: 0.7
@@ -2421,7 +2409,8 @@ MonoBehaviour:
   - sceneName: Paint
     sceneIndex: 3
     thumbnailPath: 
-    description: tira palle sul muro
+    description: Lancia palline di colore per trasformare le stanze di un museo in
+      un'esperienza interattiva e vibrante
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
