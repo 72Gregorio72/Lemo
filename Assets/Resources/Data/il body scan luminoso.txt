@@ -1,4 +1,4 @@
 Position 0 0 0 
 Rotation 0 0 0  
-Audio: il body scan luminoso.mp3
+Audio: il body scan luminoso
 Description: Un viaggio meditativo nel corpo, guidato da una luce gentile che porta ascolto e sollievo.

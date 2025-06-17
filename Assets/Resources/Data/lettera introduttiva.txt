@@ -1,4 +1,4 @@
 Position 0 0 0 
 Rotation 0 0 0  
-Audio: lettera introduttiva.mp3
+Audio: lettera introduttiva
 Description: Parole di accoglienza e forza per iniziare il percorso con consapevolezza.

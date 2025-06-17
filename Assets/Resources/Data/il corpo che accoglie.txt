@@ -1,4 +1,4 @@
 Position 0 0 0 
 Rotation 0 0 0  
-Audio: il corpo che accoglie.mp3
+Audio: il corpo che accoglie
 Description: Riconnettiti con il tuo corpo come alleato e fonte di sostegno.

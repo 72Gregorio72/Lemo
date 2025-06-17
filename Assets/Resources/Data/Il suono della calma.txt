@@ -1,4 +1,4 @@
 Position 0 0 0 
 Rotation 0 0 0  
-Audio: il suono della calma.mp3
+Audio: il suono della calma
 Description: Trasforma i suoni in musica interiore che ti accompagna con dolcezza.
