@@ -7708,6 +7708,10 @@ PrefabInstance:
       value: -6887
       objectReference: {fileID: 0}
     - target: {fileID: 3877515772066282696, guid: be4f99404334bec45a87afa0da5fc185, type: 3}
+      propertyPath: isPaint
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3877515772066282696, guid: be4f99404334bec45a87afa0da5fc185, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}

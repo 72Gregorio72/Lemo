@@ -28,6 +28,7 @@ TagManager:
   - TexturePaintBall
   - SpawnBalls
   - Pencil
+  - Line
   layers:
   - Default
   - TransparentFX
@@ -36,7 +37,7 @@ TagManager:
   - Water
   - UI
   - Wall
-  - 
+  - Overlay UI
   - 
   - 
   - 

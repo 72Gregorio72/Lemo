@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,7 +7,9 @@ public class PenWidthSelector : MonoBehaviour
     [SerializeField] private Transform trackingTarget;       // Cubo grabbabile
     [SerializeField] private RectTransform sliderRect;       // UI slider visivo
     [SerializeField] private Slider widthSlider;             // Slider Unity
-    [SerializeField] private AirDrawing airDrawing;          // Script della matita
+    [SerializeField] private List<handAirDrawing> airDrawing;          // Script della matita
+
+    private float normalizedY;                               // Valore normalizzato per lo slider
 
     private Camera mainCamera;
 
@@ -40,12 +43,20 @@ public class PenWidthSelector : MonoBehaviour
             trackingTarget.position = worldPoint;
 
             // 3. Valore normalizzato
-            float normalizedY = (localPoint.y + deltaY) / height;
+            normalizedY = (localPoint.y + deltaY) / height;
             widthSlider.value = normalizedY;
 
             // 4. Applica al disegno
-            airDrawing.lineWidth = Mathf.Lerp(0.001f, 0.02f, normalizedY); // esempio da 0.001 a 0.02
-            Debug.Log("Line width updated: " + airDrawing.lineWidth);
+            
+        }
+    }
+
+    public void UpdateSlider()
+    {
+        float newLineWidth = Mathf.Lerp(0.001f, 1f, normalizedY);
+        foreach (var drawing in airDrawing)
+        {
+            drawing.lineWidth = newLineWidth;
         }
     }
 }

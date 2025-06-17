@@ -7,7 +7,7 @@ public class HueSliderControll : MonoBehaviour
     [SerializeField] private RectTransform sliderRect;               // RectTransform dello Slider
     [SerializeField] private Slider hueSlider;                       // Lo Slider
     [SerializeField] private ColorPickerControll colorPicker;        // Il ColorPicker
-    
+
     private Camera mainCamera;
 
     private void Awake()
@@ -46,8 +46,12 @@ public class HueSliderControll : MonoBehaviour
             hueSlider.value = normalizedY;
 
             // 6. Aggiorna le texture colore
-            colorPicker.UpdateSVImage();
-            Debug.Log("Hue value updated: " + hueSlider.value);
+            //Debug.Log("Hue value updated: " + hueSlider.value);
         }
+    }
+
+    public void UpdateImage()
+    {
+        colorPicker.UpdateSVImage();
     }
 }

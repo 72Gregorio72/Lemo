@@ -1,21 +1,24 @@
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 using Oculus;
 
 [RequireComponent(typeof(OVRGrabbable))]
 public class AirDrawing : MonoBehaviour
 {
-    public Transform tip; // la punta della matita
-    public float minDistance = 0.01f; // distanza minima per aggiungere un punto
-    public OVRInput.Button drawButton = OVRInput.Button.Two; // 'B' su Oculus
+    public Transform tip;
+    public float minDistance = 0.01f;
+    public OVRInput.Button drawButton = OVRInput.Button.Two;
     public Material lineMaterial;
     public float lineWidth = 0.005f;
 
     private OVRGrabbable grabbable;
     private LineRenderer currentLine;
+    private MeshCollider currentCollider;
     private List<Vector3> points = new List<Vector3>();
     private bool isDrawing = false;
     private Vector3 lastPoint;
+
+    public GameObject linePrefab;
 
     void Start()
     {
@@ -48,34 +51,65 @@ public class AirDrawing : MonoBehaviour
 
     void StartDrawing()
     {
-        GameObject lineObj = new GameObject("AirLine");
-        currentLine = lineObj.AddComponent<LineRenderer>();
-        currentLine.positionCount = 0;
+        GameObject lineObj = Instantiate(linePrefab);
+        currentLine = lineObj.GetComponent<LineRenderer>();
+        MeshCollider meshCol = lineObj.GetComponent<MeshCollider>();
 
-        // 🔧 Crea un materiale nuovo per questa linea (così non viene condiviso)
+        
+        currentLine.widthCurve = AnimationCurve.Constant(0, 1, lineWidth);
+        currentLine.numCapVertices = 5;
+
+        // Materiale unico e colore
         Material uniqueMat = new Material(lineMaterial);
         currentLine.material = uniqueMat;
 
-        currentLine.widthCurve = AnimationCurve.Constant(0, 1, lineWidth);
-        currentLine.numCapVertices = 5;
-        currentLine.useWorldSpace = true;
-
+        // Pulisci e inizializza
         points.Clear();
-        AddPoint(tip.position);
-        isDrawing = true;
-        lastPoint = tip.position;
-    }
+        Vector3 localPoint = currentLine.transform.InverseTransformPoint(tip.position);
+        points.Add(localPoint);
+        currentLine.positionCount = 1;
+        currentLine.SetPosition(0, localPoint);
 
+        // Bake iniziale del collider
+        Mesh mesh = new Mesh();
+        currentLine.BakeMesh(mesh, false); // local space
+        meshCol.sharedMesh = mesh;
+
+        lastPoint = tip.position;
+        isDrawing = true;
+    }
 
     void StopDrawing()
     {
         isDrawing = false;
+        currentLine = null;
+        currentCollider = null;
     }
 
-    void AddPoint(Vector3 point)
+    void AddPoint(Vector3 worldPoint)
     {
-        points.Add(point);
+        Vector3 localPoint = currentLine.transform.InverseTransformPoint(worldPoint);
+        points.Add(localPoint);
         currentLine.positionCount = points.Count;
         currentLine.SetPositions(points.ToArray());
+
+        if (points.Count >= 2)
+        {
+            Mesh mesh = new Mesh();
+            currentLine.BakeMesh(mesh, false);
+            currentLine.GetComponent<MeshCollider>().sharedMesh = null;
+            currentLine.GetComponent<MeshCollider>().sharedMesh = mesh;
+        }
+    }
+
+
+    public List<Vector3> GetPoints()
+    {
+        return new List<Vector3>(points);
+    }
+
+    public bool HasLineRenderer(LineRenderer target)
+    {
+        return currentLine != null && currentLine == target;
     }
 }

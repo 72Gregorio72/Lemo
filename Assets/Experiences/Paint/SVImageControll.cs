@@ -20,9 +20,17 @@ public class SVImageControll : MonoBehaviour
         mainCamera = Camera.main;
     }
 
+   private Vector3 lastTrackedPosition;
+
     private void Update()
     {
         if (trackingTarget == null) return;
+
+        // ✅ Se la posizione non è cambiata abbastanza, salta
+        if (Vector3.Distance(trackingTarget.position, lastTrackedPosition) < 0.001f)
+            return;
+
+        lastTrackedPosition = trackingTarget.position;
 
         Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(mainCamera, trackingTarget.position);
 
@@ -32,7 +40,6 @@ public class SVImageControll : MonoBehaviour
             mainCamera,
             out Vector2 localPoint))
         {
-            // Limita i valori dentro l’area del picker
             float width = rectTransform.sizeDelta.x;
             float height = rectTransform.sizeDelta.y;
 
@@ -42,16 +49,13 @@ public class SVImageControll : MonoBehaviour
             localPoint.x = Mathf.Clamp(localPoint.x, -deltaX, deltaX);
             localPoint.y = Mathf.Clamp(localPoint.y, -deltaY, deltaY);
 
-            // 🔁 Converto il punto locale limitato di nuovo in posizione mondo
             Vector3 worldPoint = rectTransform.TransformPoint(localPoint);
-
-            // 🛑 Forzo il trackingTarget a rimanere dentro l’area
             trackingTarget.position = worldPoint;
 
-            // ✅ Ora aggiorno il picker e il colore
             MovePickerAndUpdateColor(localPoint);
         }
     }
+
 
     private void MovePickerAndUpdateColor(Vector2 localPoint)
     {

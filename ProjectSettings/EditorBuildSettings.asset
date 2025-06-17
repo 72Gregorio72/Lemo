@@ -21,7 +21,7 @@ EditorBuildSettings:
     path: Assets/Experiences/passtrough/Memory.unity
     guid: b69c6defac3726048b0845cadb9d5510
   - enabled: 1
-    path: Assets/Experiences/passtrough/Draw.unity
+    path: Assets/Experiences/passtrough/Draw/Draw.unity
     guid: 1b0e857098e66994f876f59df66ea705
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: bfa1182bd221b4ca89619141f66f1260, type: 2}
