@@ -12,6 +12,8 @@ public class TouchToClick : MonoBehaviour
     public Color selectedColor = Color.red;
     public Color normalColor = Color.white;
 
+    public bool startSelected = false;
+
     void Awake()
     {
         allButtons.Add(this);
@@ -27,6 +29,10 @@ public class TouchToClick : MonoBehaviour
         button = GetComponent<Button>();
         buttonImage = GetComponent<Image>();
         SetSelected(false);
+        if(startSelected)
+        {
+            SetSelectedButton(this);
+        }
     }
 
     void OnTriggerEnter(Collider other)

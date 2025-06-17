@@ -38,7 +38,7 @@ public class handAirDrawing : MonoBehaviour
             StopDrawing();
         }
 
-        if (isDrawing)
+        if (isDrawing && currentLine != null)
         {
             Vector3 tipPos = tip.position;
             if (Vector3.Distance(tipPos, lastPoint) > minDistance)
@@ -47,6 +47,7 @@ public class handAirDrawing : MonoBehaviour
                 lastPoint = tipPos;
             }
         }
+
     }
 
     private float eraseRadius = 0.01f;
@@ -246,24 +247,35 @@ public class handAirDrawing : MonoBehaviour
 
     void AddPoint(Vector3 worldPoint)
     {
+        if (currentLine == null)
+        {
+            Debug.LogWarning("Tentativo di disegnare su una linea distrutta.");
+            isDrawing = false; // Interrompi il disegno per sicurezza
+            return;
+        }
+
         Vector3 localPoint = currentLine.transform.InverseTransformPoint(worldPoint);
 
-        if (Vector3.Distance(localPoint, rawPoints[rawPoints.Count - 1]) < minDistance) return;
+        if (rawPoints.Count > 0 && Vector3.Distance(localPoint, rawPoints[rawPoints.Count - 1]) < minDistance)
+            return;
 
         rawPoints.Add(localPoint);
-        points = SmoothLine(rawPoints, 50); // Interpola ogni segmento
+        points = SmoothLine(rawPoints, 1); // Interpola ogni segmento
 
         currentLine.positionCount = points.Count;
         currentLine.SetPositions(points.ToArray());
 
-        // Aggiorna collider
         MeshCollider meshCol = currentLine.GetComponent<MeshCollider>();
-        Mesh mesh = new Mesh();
-        currentLine.BakeMesh(mesh, false);
-        meshCol.sharedMesh = mesh;
+        if (meshCol != null)
+        {
+            Mesh mesh = new Mesh();
+            currentLine.BakeMesh(mesh, false);
+            meshCol.sharedMesh = mesh;
+        }
     }
 
-    List<Vector3> SmoothLine(List<Vector3> rawPoints, int stepsPerSegment = 50)
+
+    List<Vector3> SmoothLine(List<Vector3> rawPoints, int stepsPerSegment = 1)
     {
         List<Vector3> smooth = new List<Vector3>();
 

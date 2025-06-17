@@ -2422,6 +2422,10 @@ MonoBehaviour:
     sceneIndex: 3
     thumbnailPath: 
     description: Divertiti a disegnare
+  - sceneName: Draw
+    sceneIndex: 5
+    thumbnailPath: 
+    description: Divertiti a disegnare
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
