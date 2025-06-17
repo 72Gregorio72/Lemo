@@ -199,36 +199,43 @@ public class handAirDrawing : MonoBehaviour
     }
 
 
+    private List<Vector3> rawPoints = new List<Vector3>();
+
     void StartDrawing()
     {
         GameObject lineObj = Instantiate(linePrefab);
         currentLine = lineObj.GetComponent<LineRenderer>();
         MeshCollider meshCol = lineObj.GetComponent<MeshCollider>();
-        lineObj.tag = "Line"; // Tag per identificare le linee disegnate a mano
+        lineObj.tag = "Line";
 
-        
+        // Configura LineRenderer
         currentLine.widthCurve = AnimationCurve.Constant(0, 1, lineWidth);
-        currentLine.numCapVertices = 5;
+        currentLine.numCapVertices = 20;
+        currentLine.numCornerVertices = 20;
+        currentLine.useWorldSpace = false;
 
-        // Materiale unico e colore
+        // Materiale unico
         Material uniqueMat = new Material(lineMaterial);
         currentLine.material = uniqueMat;
 
-        // Pulisci e inizializza
+        // Inizializza
+        rawPoints.Clear();
         points.Clear();
         Vector3 localPoint = currentLine.transform.InverseTransformPoint(tip.position);
+        rawPoints.Add(localPoint);
         points.Add(localPoint);
         currentLine.positionCount = 1;
         currentLine.SetPosition(0, localPoint);
 
-        // Bake iniziale del collider
+        // Collider iniziale
         Mesh mesh = new Mesh();
-        currentLine.BakeMesh(mesh, false); // local space
+        currentLine.BakeMesh(mesh, false);
         meshCol.sharedMesh = mesh;
 
         lastPoint = tip.position;
         isDrawing = true;
     }
+
 
     void StopDrawing()
     {
@@ -240,17 +247,40 @@ public class handAirDrawing : MonoBehaviour
     void AddPoint(Vector3 worldPoint)
     {
         Vector3 localPoint = currentLine.transform.InverseTransformPoint(worldPoint);
-        points.Add(localPoint);
+
+        if (Vector3.Distance(localPoint, rawPoints[rawPoints.Count - 1]) < minDistance) return;
+
+        rawPoints.Add(localPoint);
+        points = SmoothLine(rawPoints, 50); // Interpola ogni segmento
+
         currentLine.positionCount = points.Count;
         currentLine.SetPositions(points.ToArray());
 
-        if (points.Count >= 2)
+        // Aggiorna collider
+        MeshCollider meshCol = currentLine.GetComponent<MeshCollider>();
+        Mesh mesh = new Mesh();
+        currentLine.BakeMesh(mesh, false);
+        meshCol.sharedMesh = mesh;
+    }
+
+    List<Vector3> SmoothLine(List<Vector3> rawPoints, int stepsPerSegment = 50)
+    {
+        List<Vector3> smooth = new List<Vector3>();
+
+        for (int i = 0; i < rawPoints.Count - 1; i++)
         {
-            Mesh mesh = new Mesh();
-            currentLine.BakeMesh(mesh, false);
-            currentLine.GetComponent<MeshCollider>().sharedMesh = null;
-            currentLine.GetComponent<MeshCollider>().sharedMesh = mesh;
+            Vector3 start = rawPoints[i];
+            Vector3 end = rawPoints[i + 1];
+
+            for (int j = 0; j < stepsPerSegment; j++)
+            {
+                float t = j / (float)stepsPerSegment;
+                smooth.Add(Vector3.Lerp(start, end, t));
+            }
         }
+
+        smooth.Add(rawPoints[rawPoints.Count - 1]);
+        return smooth;
     }
 
 

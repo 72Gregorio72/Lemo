@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 5162294799011347001}
   - component: {fileID: 4045694380211416890}
   m_Layer: 0
-  m_Name: LinePrefab
+  m_Name: prova
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
