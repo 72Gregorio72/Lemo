@@ -1,4 +1,4 @@
-Position 0 9 0
-Rotation 0 270 0 
-Audio: No
-Description: Immergiti in una meditazione immersiva e guidata
+Position 0 0 0 
+Rotation 0 0 0  
+Audio: il suono della calma.mp3
+Description: Trasforma i suoni in musica interiore che ti accompagna con dolcezza.

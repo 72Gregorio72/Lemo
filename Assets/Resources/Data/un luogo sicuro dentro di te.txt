@@ -1,4 +1,4 @@
-Position 0 7.4 0
-Rotation 0 243.707 0 
-Audio: "un luogo sicuro dentro di te"
-Description: 
+Position 0 0 0 
+Rotation 0 0 0  
+Audio: un luogo sicuro dentro di te.mp3
+Description: Crea uno spazio interiore di calma dove rifugiarti quando ne hai bisogno
