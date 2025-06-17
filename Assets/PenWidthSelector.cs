@@ -6,7 +6,7 @@ public class PenWidthSelector : MonoBehaviour
     [SerializeField] private Transform trackingTarget;       // Cubo grabbabile
     [SerializeField] private RectTransform sliderRect;       // UI slider visivo
     [SerializeField] private Slider widthSlider;             // Slider Unity
-    [SerializeField] private AirDrawing airDrawing;          // Script della matita
+    [SerializeField] private handAirDrawing airDrawing;          // Script della matita
 
     private Camera mainCamera;
 

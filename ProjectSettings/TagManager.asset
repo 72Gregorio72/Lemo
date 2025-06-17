@@ -28,6 +28,7 @@ TagManager:
   - TexturePaintBall
   - SpawnBalls
   - Pencil
+  - Line
   layers:
   - Default
   - TransparentFX
