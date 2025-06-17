@@ -1,22 +1,56 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class TouchToClick : MonoBehaviour
 {
+    public static List<TouchToClick> allButtons = new List<TouchToClick>();
+
     private Button button;
+    private Image buttonImage;
+
+    public Color selectedColor = Color.red;
+    public Color normalColor = Color.white;
+
+    void Awake()
+    {
+        allButtons.Add(this);
+    }
+
+    void OnDestroy()
+    {
+        allButtons.Remove(this);
+    }
 
     void Start()
     {
         button = GetComponent<Button>();
+        buttonImage = GetComponent<Image>();
+        SetSelected(false);
     }
 
     void OnTriggerEnter(Collider other)
     {
-        Debug.Log("Collider entered: " + other.name);
-        if (other.CompareTag("HandHitbox"))  // Assicurati che il controller abbia il tag "Hand"
+        if (other.CompareTag("HandHitbox"))
         {
-            Debug.Log("Button clicked: " + button.name);
             button.onClick.Invoke();
+            SetSelectedButton(this);
+        }
+    }
+
+    public static void SetSelectedButton(TouchToClick selected)
+    {
+        foreach (var btn in allButtons)
+        {
+            btn.SetSelected(btn == selected);
+        }
+    }
+
+    public void SetSelected(bool isSelected)
+    {
+        if (buttonImage != null)
+        {
+            buttonImage.color = isSelected ? selectedColor : normalColor;
         }
     }
 }
