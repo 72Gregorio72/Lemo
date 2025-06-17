@@ -2786,13 +2786,9 @@ MonoBehaviour:
   onGrab:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
   onRelease:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
-  grabbable: {fileID: 0}
-  wasGrabbedLastFrame: 0
 --- !u!1 &984410227
 GameObject:
   m_ObjectHideFlags: 0
@@ -2940,6 +2936,7 @@ MonoBehaviour:
   drawButton: 2
   lineMaterial: {fileID: 2100000, guid: c20629410a03a6b4c9e3b8c22fd03494, type: 2}
   lineWidth: 0.005
+  linePrefab: {fileID: 0}
 --- !u!1 &1047784692
 GameObject:
   m_ObjectHideFlags: 0
@@ -3972,13 +3969,9 @@ MonoBehaviour:
   onGrab:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
   onRelease:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
-  grabbable: {fileID: 0}
-  wasGrabbedLastFrame: 0
 --- !u!1 &1508713122
 GameObject:
   m_ObjectHideFlags: 0
@@ -4170,7 +4163,9 @@ MonoBehaviour:
   trackingTarget: {fileID: 1467945606}
   sliderRect: {fileID: 1678491555}
   widthSlider: {fileID: 1678491556}
-  airDrawing: {fileID: 0}
+  airDrawing:
+  - {fileID: 876959219}
+  - {fileID: 1851853035}
 --- !u!1 &1708066466
 GameObject:
   m_ObjectHideFlags: 0
@@ -5317,13 +5312,9 @@ MonoBehaviour:
   onGrab:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
   onRelease:
     m_PersistentCalls:
       m_Calls: []
-    m_CallsDirty: 1
-  grabbable: {fileID: 0}
-  wasGrabbedLastFrame: 0
 --- !u!135 &1851853032
 SphereCollider:
   m_ObjectHideFlags: 0
