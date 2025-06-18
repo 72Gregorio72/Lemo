@@ -13,7 +13,6 @@ public class handAirDrawing : MonoBehaviour
     public Material lineMaterial;
     public float lineWidth = 0.005f;
     private LineRenderer currentLine;
-    private MeshCollider currentCollider;
     private List<Vector3> points = new List<Vector3>();
     private bool isDrawing = false;
     private Vector3 lastPoint;
@@ -21,6 +20,10 @@ public class handAirDrawing : MonoBehaviour
     public GameObject linePrefab;
 
     private PencilTypeSelector pencilTypeSelector;
+
+    public Transform eraserSphere;
+
+    public float eraseRadius = 0.5f;
 
     void Start()
     {
@@ -48,9 +51,73 @@ public class handAirDrawing : MonoBehaviour
             }
         }
 
+        if (pencilTypeSelector.isEraser && OVRInput.Get(drawButton, controller))
+        {
+            EraseNearbyLines(tip.position, eraseRadius);
+        }
+
+        if (pencilTypeSelector.isEraser)
+        {
+            if (eraserSphere != null)
+            {
+                eraserSphere.position = tip.position;
+                eraserSphere.gameObject.SetActive(true);
+            }
+        }
+        else
+        {
+            if (eraserSphere != null)
+            {
+                eraserSphere.gameObject.SetActive(false);
+            }
+        }
     }
 
-    private float eraseRadius = 0.01f;
+    void OnDrawGizmos()
+    {
+        if (pencilTypeSelector != null && pencilTypeSelector.isEraser)
+        {
+            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+            Gizmos.DrawSphere(tip.position, eraseRadius);
+        }
+    }
+
+
+    void EraseNearbyLines(Vector3 eraserPosition, float radius)
+    {
+        GameObject[] allLines = GameObject.FindGameObjectsWithTag("Line");
+
+        foreach (GameObject lineObj in allLines)
+        {
+            LineRenderer line = lineObj.GetComponent<LineRenderer>();
+            if (line == null || line.positionCount < 2) continue;
+
+            Vector3[] points = new Vector3[line.positionCount];
+            line.GetPositions(points);
+
+            for (int i = 0; i < points.Length - 1; i++)
+            {
+                Vector3 worldA = line.transform.TransformPoint(points[i]);
+                Vector3 worldB = line.transform.TransformPoint(points[i + 1]);
+
+                float distance = DistancePointToSegment(eraserPosition, worldA, worldB);
+                if (distance <= radius)
+                {
+                    SplitLineRendererOnErase(line, eraserPosition, radius, linePrefab);
+                    break;
+                }
+            }
+        }
+    }
+
+    float DistancePointToSegment(Vector3 point, Vector3 a, Vector3 b)
+    {
+        Vector3 ab = b - a;
+        Vector3 ap = point - a;
+        float t = Mathf.Clamp01(Vector3.Dot(ap, ab) / ab.sqrMagnitude);
+        Vector3 closest = a + t * ab;
+        return Vector3.Distance(point, closest);
+    }
 
     private void OnTriggerStay(Collider other)
     {
@@ -61,7 +128,7 @@ public class handAirDrawing : MonoBehaviour
                 LineRenderer line = other.GetComponent<LineRenderer>();
                 if (line != null)
                 {
-                    SplitLineRendererOnErase(line, tip.position, 1f, linePrefab);
+                    SplitLineRendererOnErase(line, tip.position, eraseRadius, linePrefab);
                 }
             }
         }
@@ -186,20 +253,6 @@ public class handAirDrawing : MonoBehaviour
     }
 
 
-    void UpdateMeshCollider(GameObject lineObj, LineRenderer line)
-    {
-        Mesh mesh = new Mesh();
-        line.BakeMesh(mesh, false);
-        
-        MeshCollider col = lineObj.GetComponent<MeshCollider>();
-        if (col != null)
-        {
-            col.sharedMesh = null;
-            col.sharedMesh = mesh;
-        }
-    }
-
-
     private List<Vector3> rawPoints = new List<Vector3>();
 
     void StartDrawing()
@@ -228,11 +281,6 @@ public class handAirDrawing : MonoBehaviour
         currentLine.positionCount = 1;
         currentLine.SetPosition(0, localPoint);
 
-        // Collider iniziale
-        Mesh mesh = new Mesh();
-        currentLine.BakeMesh(mesh, false);
-        meshCol.sharedMesh = mesh;
-
         lastPoint = tip.position;
         isDrawing = true;
     }
@@ -242,7 +290,6 @@ public class handAirDrawing : MonoBehaviour
     {
         isDrawing = false;
         currentLine = null;
-        currentCollider = null;
     }
 
     void AddPoint(Vector3 worldPoint)
@@ -264,14 +311,6 @@ public class handAirDrawing : MonoBehaviour
 
         currentLine.positionCount = points.Count;
         currentLine.SetPositions(points.ToArray());
-
-        MeshCollider meshCol = currentLine.GetComponent<MeshCollider>();
-        if (meshCol != null)
-        {
-            Mesh mesh = new Mesh();
-            currentLine.BakeMesh(mesh, false);
-            meshCol.sharedMesh = mesh;
-        }
     }
 
 

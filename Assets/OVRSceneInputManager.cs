@@ -123,7 +123,7 @@ namespace HKCarouselLayoutGroup
                 OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.RTouch))
             {
                 Debug.Log("Primary Trigger Pressed");
-                HandleTriggerPress();
+                //HandleTriggerPress();
             }
 
             cooldownTimer -= Time.deltaTime;
@@ -271,6 +271,7 @@ namespace HKCarouselLayoutGroup
             if (OVRInput.GetDown(OVRInput.Button.Two, controller))
             {
                 Debug.Log("secondary");
+                HandleTriggerPress();
                 isSecondaryOn = true;
                 onSecondaryDown?.Invoke();
             }

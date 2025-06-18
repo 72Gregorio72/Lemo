@@ -19,26 +19,13 @@ public class SelfDestructIfEmpty : MonoBehaviour
         if (line == null || line.positionCount == 0)
         {
             CancelInvoke(nameof(CheckAndDestroy));
-
-            // Disabilita tutti i collider per evitare che OVRGrabber li tocchi
-            foreach (var col in GetComponents<Collider>())
-            {
-                if (col != null)
-                    col.enabled = false;
-            }
-
-            // Disattiva la linea
-            if (line != null)
-                line.enabled = false;
-
-            // Avvia la distruzione nel frame successivo (per evitare race condition con OVRGrabber)
-            StartCoroutine(DelayedDestroy());
+            StartCoroutine(DestroyAfterDelay());
         }
     }
 
-    IEnumerator DelayedDestroy()
+    IEnumerator DestroyAfterDelay()
     {
-        yield return null; // aspetta un frame intero
-        Destroy(gameObject, 10f); // ora è sicuro
+        yield return new WaitForSeconds(destroyDelay);
+        Destroy(gameObject);
     }
 }

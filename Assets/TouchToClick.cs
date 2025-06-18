@@ -12,7 +12,13 @@ public class TouchToClick : MonoBehaviour
     public Color selectedColor = Color.red;
     public Color normalColor = Color.white;
 
+    public Color isHoveringColor = Color.yellow;
+
     public bool startSelected = false;
+
+    private bool isSelected = false;
+
+    public UnityEngine.Events.UnityEvent onClick;
 
     void Awake()
     {
@@ -29,20 +35,20 @@ public class TouchToClick : MonoBehaviour
         button = GetComponent<Button>();
         buttonImage = GetComponent<Image>();
         SetSelected(false);
-        if(startSelected)
+        if (startSelected)
         {
             SetSelectedButton(this);
         }
     }
 
-    void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("HandHitbox"))
-        {
-            button.onClick.Invoke();
-            SetSelectedButton(this);
-        }
-    }
+    // void OnTriggerEnter(Collider other)
+    // {
+    //     if (other.CompareTag("HandHitbox"))
+    //     {
+    //         button.onClick.Invoke();
+    //         SetSelectedButton(this);
+    //     }
+    // }
 
     public static void SetSelectedButton(TouchToClick selected)
     {
@@ -57,6 +63,37 @@ public class TouchToClick : MonoBehaviour
         if (buttonImage != null)
         {
             buttonImage.color = isSelected ? selectedColor : normalColor;
+            this.isSelected = isSelected;
+            if (isSelected)
+            {
+                onClick.Invoke();
+            }
+        }
+    }
+
+    public void SelectButton()
+    {
+        SetSelectedButton(this);
+        Debug.Log("Button selected: " + gameObject.name);
+    }
+
+    public void HoveringButton()
+    {
+        if (buttonImage != null)
+        {
+            buttonImage.color = isHoveringColor;
+        }
+    }
+
+    public void StopHoveringButton()
+    {
+        if (buttonImage != null && !isSelected)
+        {
+            buttonImage.color = normalColor;
+        }
+        else if (buttonImage != null && isSelected)
+        {
+            buttonImage.color = selectedColor;
         }
     }
 }
