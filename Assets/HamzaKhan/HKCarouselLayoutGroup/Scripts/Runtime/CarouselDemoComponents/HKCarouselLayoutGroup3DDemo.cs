@@ -9,6 +9,8 @@ namespace HKCarouselLayoutGroup
         public string ThumbnailPath;
         public string Category;
         public bool IsImage360;
+        public bool IsSceneLink;
+        public int SceneIndex = -1;
 
         private string _videoPath;
         public string VideoPath
@@ -32,7 +34,7 @@ namespace HKCarouselLayoutGroup
 
         public override string ToString()
         {
-            return $"[HKCarouselElementData] Name: {Name}, Category: {Category}, Path: {VideoPath}, IsImage360: {IsImage360}";
+            return $"[HKCarouselElementData] Name: {Name}, Category: {Category}, Path: {VideoPath}, IsImage360: {IsImage360}, IsSceneLink: {IsSceneLink}";
         }
     }
 }

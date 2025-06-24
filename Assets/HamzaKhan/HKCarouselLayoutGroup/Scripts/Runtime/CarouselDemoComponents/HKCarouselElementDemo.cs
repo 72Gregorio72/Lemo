@@ -19,6 +19,39 @@ namespace HKCarouselLayoutGroup
 
         private int id;
 
+        [System.Serializable]
+        private class RatingDataWrapper
+        {
+            public List<RatingEntry> entries = new List<RatingEntry>();
+        }
+
+        [System.Serializable]
+        private class RatingEntry
+        {
+            public string key;
+            public RatingData value;
+        }
+
+        [System.Serializable]
+        public class RatingData
+        {
+            public float average;
+            public int count;
+        }
+
+        private Dictionary<string, RatingData> ConvertFromWrapper(RatingDataWrapper wrapper)
+        {
+            var dict = new Dictionary<string, RatingData>();
+            if (wrapper?.entries != null)
+            {
+                foreach (var entry in wrapper.entries)
+                {
+                    dict[entry.key] = entry.value;
+                }
+            }
+            return dict;
+        }
+
         public void ConfigureElement(HKCarouselElementData data, int index)
         {
             id = index;
@@ -69,19 +102,52 @@ namespace HKCarouselLayoutGroup
 
             string key = nameText.text.Trim();
 
-            // Get reference to the XRCarouselInputController
+            // Try to get reference to either controller type
             var carouselController = FindFirstObjectByType<XRCarouselInputController>();
-            if (carouselController == null)
+            var carousel360Controller = FindFirstObjectByType<XR360CarouselController>();
+
+            if (carouselController == null && carousel360Controller == null)
             {
-                Debug.LogError("[CarouselElementDemo] Could not find XRCarouselInputController!");
+                Debug.LogWarning("[CarouselElementDemo] Could not find either XRCarouselInputController or XR360CarouselController!");
                 SetRatingDisplay(0f, 0);
                 return;
             }
 
-            // Load rating data using the controller's method
-            var ratingData = carouselController.LoadRatingData();
+            // Load rating data using the available controller
+            Dictionary<string, RatingData> ratingData;
+            if (carouselController != null)
+            {
+                var inputControllerData = carouselController.LoadRatingData();
+                ratingData = new Dictionary<string, RatingData>();
+                foreach (var kvp in inputControllerData)
+                {
+                    ratingData[kvp.Key] = new RatingData { average = kvp.Value.average, count = kvp.Value.count };
+                }
+            }
+            else
+            {
+                // Use the same rating file path and loading logic as XR360CarouselController
+                string ratingPath = Path.Combine(Application.persistentDataPath, "Rating", "ratings.json");
+                if (!File.Exists(ratingPath))
+                {
+                    SetRatingDisplay(0f, 0);
+                    return;
+                }
+
+                try
+                {
+                    string json = File.ReadAllText(ratingPath);
+                    var wrapper = JsonUtility.FromJson<RatingDataWrapper>(json);
+                    ratingData = ConvertFromWrapper(wrapper);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[CarouselElementDemo] Error loading rating data: {e.Message}");
+                    ratingData = new Dictionary<string, RatingData>();
+                }
+            }
             
-            if (ratingData.TryGetValue(key, out XRCarouselInputController.RatingData data))
+            if (ratingData.TryGetValue(key, out RatingData data))
             {
                 SetRatingDisplay(data.average, data.count);
             }
@@ -142,32 +208,6 @@ namespace HKCarouselLayoutGroup
             
             if (ratingCountText != null)
                 ratingCountText.text = $"({count})";
-        }
-
-        [System.Serializable]
-        public class RatingData
-        {
-            public float average;
-            public int count;
-        }
-
-        public static class JsonUtilityWrapper
-        {
-            [System.Serializable]
-            private class Wrapper<T>
-            {
-                public List<string> keys = new();
-                public List<T> values = new();
-            }
-
-            public static Dictionary<string, T> FromJson<T>(string json)
-            {
-                var wrapper = JsonUtility.FromJson<Wrapper<T>>(json);
-                Dictionary<string, T> dict = new();
-                for (int i = 0; i < wrapper.keys.Count; i++)
-                    dict[wrapper.keys[i]] = wrapper.values[i];
-                return dict;
-            }
         }
     }
 }

@@ -8,14 +8,16 @@ Shader "Custom/InsideSphere360VideoURP_Visibility"
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" }
+        Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Background" }
 
         Pass
         {
             Name "Unlit"
             Tags { "LightMode" = "UniversalForward" }
 
+            ZWrite On
             Cull Front // Show inside of the sphere
+            Lighting Off
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -50,7 +52,7 @@ Shader "Custom/InsideSphere360VideoURP_Visibility"
 
                 float3 worldPos = TransformObjectToWorld(input.positionOS.xyz);
                 output.positionHCS = TransformWorldToHClip(worldPos);
-                output.uv = input.uv;
+                output.uv = float2(1 - input.uv.x, input.uv.y); // Flip UVs horizontally for correct video orientation
                 return output;
             }
 

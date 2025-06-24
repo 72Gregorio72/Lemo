@@ -1,0 +1,4 @@
+Position 0 0 0 
+Rotation 0 0 0  
+Audio: un_luogo_sicuro_dentro_di_te
+Description: Crea uno spazio interiore di calma dove rifugiarti quando ne hai bisogno

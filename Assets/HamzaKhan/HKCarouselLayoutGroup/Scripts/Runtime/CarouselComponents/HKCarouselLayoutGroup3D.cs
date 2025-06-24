@@ -8,6 +8,11 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine.Video;
 using System.Linq;
+using System.Collections;
+using TMPro;
+#if UNITY_ANDROID
+using UnityEngine.Networking;
+#endif
 
 namespace HKCarouselLayoutGroup
 {
@@ -43,6 +48,10 @@ namespace HKCarouselLayoutGroup
         [Header("Callbacks")]
         public UnityEvent<int> OnValueChanged;
 
+        [Header("Progress Display")]
+        [SerializeField] private TextMeshProUGUI _progressText;
+        [SerializeField] private bool _debugLogProgress = true;
+
         private List<RectTransform> _items = new();
         private Vector2 _dragStartPos;
         private bool _isDragging = false;
@@ -62,6 +71,9 @@ namespace HKCarouselLayoutGroup
 
         private List<PoolElement> _poolElements;
 
+        private bool _isInitialized = false;
+        public bool IsInitialized => _isInitialized;
+
         public class PoolElement
         {
             public RectTransform RectTransform;
@@ -70,217 +82,314 @@ namespace HKCarouselLayoutGroup
 
         void OnEnable()
         {
-            TryAutoLoadCarouselElements();
+            if (!_isInitialized)
+            {
+                StartCoroutine(InitializeCarousel());
+            }
+            else
+            {
             RefreshItems();
             UpdateCarousel();
-            CreatePool();
+            }
         }
 
         void OnValidate()
         {
+            if (_isInitialized)
+        {
             RefreshItems();
             UpdateCarousel();
+            }
         }
 
         private void Awake()
         {
-            //CreatePool();
-        }
-
-        private void TryAutoLoadCarouselElements()
-        {
-            if (typeof(T) != typeof(HKCarouselElementData)) 
+            if (!_isInitialized)
             {
-                Debug.LogWarning($"[TryAutoLoadCarouselElements] Wrong type: {typeof(T)}, expected: {typeof(HKCarouselElementData)}");
-                return;
-            }
-
-            var loadedElements = new List<HKCarouselElementData>();
-
-            // Load all video files from Resources
-            Debug.Log("[TryAutoLoadCarouselElements] Attempting to load from Resources folder...");
-            
-            var videoClips = Resources.LoadAll<VideoClip>("Videos");
-            Debug.Log($"[TryAutoLoadCarouselElements] Found {videoClips.Length} video clips");
-            foreach (var clip in videoClips)
-            {
-                Debug.Log($"[TryAutoLoadCarouselElements] Video clip found: {clip.name}");
-            }
-            
-            var images360 = Resources.LoadAll<Texture2D>("360 Images");
-            Debug.Log($"[TryAutoLoadCarouselElements] Found {images360.Length} 360° images");
-            foreach (var img in images360)
-            {
-                Debug.Log($"[TryAutoLoadCarouselElements] 360 image found: {img.name}");
-            }
-            
-            var thumbnails = Resources.LoadAll<Texture2D>("Thumbnails");
-            Debug.Log($"[TryAutoLoadCarouselElements] Found {thumbnails.Length} thumbnails");
-            foreach (var thumb in thumbnails)
-            {
-                Debug.Log($"[TryAutoLoadCarouselElements] Thumbnail found: {thumb.name}");
-            }
-
-            // Process video clips
-            foreach (var video in videoClips)
-            {
-                string name = video.name;
-                string category = GetCategoryFromResourcePath(video);
-                Debug.Log($"[TryAutoLoadCarouselElements] Processing video: {name} in category: {category}");
-                
-                // Find matching thumbnail
-                string thumbnailPath = null;
-                var thumbnail = thumbnails.FirstOrDefault(t => t.name == name);
-                if (thumbnail != null)
-                {
-                    // Remove .png extension if present since Resources.Load doesn't need it
-                    thumbnailPath = $"Thumbnails/{category}/{name}".Replace(".png", "");
-                }
-
-                // Store the full path including category
-                string fullVideoPath = $"Videos/{category}/{name}";
-                
-                loadedElements.Add(new HKCarouselElementData
-                {
-                    Name = name,
-                    Category = category,
-                    VideoPath = fullVideoPath,
-                    ThumbnailPath = thumbnailPath,
-                    IsImage360 = false
-                });
-            }
-
-            // Process 360 images
-            foreach (var image in images360)
-            {
-                string name = image.name;
-                string category = GetCategoryFromResourcePath(image);
-                Debug.Log($"[TryAutoLoadCarouselElements] Processing 360° image: {name} in category: {category}");
-                
-                // Find matching thumbnail
-                string thumbnailPath = null;
-                var thumbnail = thumbnails.FirstOrDefault(t => t.name == name);
-                if (thumbnail != null)
-                {
-                    thumbnailPath = $"Thumbnails/{category}/{name}".Replace(".png", "");
-                }
-
-                // Store the full path including category
-                string fullImagePath = $"360 Images/{category}/{name}";
-
-                loadedElements.Add(new HKCarouselElementData
-                {
-                    Name = name,
-                    Category = category,
-                    VideoPath = fullImagePath,
-                    ThumbnailPath = thumbnailPath,
-                    IsImage360 = true
-                });
-            }
-
-            Debug.Log($"[TryAutoLoadCarouselElements] Total elements loaded: {loadedElements.Count}");
-
-            if (loadedElements.Count == 0)
-            {
-                Debug.LogError("[TryAutoLoadCarouselElements] No elements found in Resources folder. Please ensure you have the following structure:\n" +
-                    "Assets/Resources/\n" +
-                    "├── Videos/\n" +
-                    "│   └── [CategoryName]/\n" +
-                    "│       └── video files\n" +
-                    "├── 360 Images/\n" +
-                    "│   └── [CategoryName]/\n" +
-                    "│       └── image files\n" +
-                    "└── Thumbnails/\n" +
-                    "    └── [CategoryName]/\n" +
-                    "        └── thumbnail files");
-                return;
-            }
-
-            // Group elements by Category, then Name
-            loadedElements.Sort((a, b) =>
-            {
-                int catCompare = string.Compare(a.Category, b.Category, System.StringComparison.OrdinalIgnoreCase);
-                if (catCompare != 0) return catCompare;
-
-                return string.Compare(a.Name, b.Name, System.StringComparison.OrdinalIgnoreCase);
-            });
-
-            // Assign the loaded list to the carousel
-            FieldInfo fi = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>)
-                .GetField("_carouselElements", BindingFlags.NonPublic | BindingFlags.Instance);
-
-            if (fi != null)
-            {
-                fi.SetValue(this, loadedElements);
-
-                FieldInfo defaultIndexField = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>)
-                    .GetField("_defaultSelectedIndex", BindingFlags.NonPublic | BindingFlags.Instance);
-
-                if (defaultIndexField != null && loadedElements.Count > 0)
-                {
-                    int middleIndex = Mathf.FloorToInt(loadedElements.Count / 2);
-                    defaultIndexField.SetValue(this, middleIndex);
-                }
+                StartCoroutine(InitializeCarousel());
             }
         }
 
-        private string GetCategoryFromResourcePath(UnityEngine.Object resource)
+        private IEnumerator InitializeCarousel()
         {
-            string resourceName = resource.name;
-            Debug.Log($"[GetCategoryFromResourcePath] Processing resource: {resourceName}");
-
-            // Try to extract category from the resource name
-            string[] nameParts = resourceName.Split('_');
-            if (nameParts.Length > 1)
+            if (_isInitialized)
             {
-                string category = nameParts[0];
-                Debug.Log($"[GetCategoryFromResourcePath] Found category from name: {category}");
-                return category;
+                yield break;
             }
 
-            // If no category found in name, check if it's in a subfolder
-            if (resource is VideoClip)
+            if (_progressText != null)
             {
-                var allVideos = Resources.LoadAll<VideoClip>("Videos");
-                foreach (var video in allVideos)
-                {
-                    if (video == resource)
-                    {
-                        string path = Resources.Load<VideoClip>($"Videos/{resourceName}") != null ? "Videos" :
-                                     Resources.Load<VideoClip>($"Videos/Nature/{resourceName}") != null ? "Nature" :
-                                     Resources.Load<VideoClip>($"Videos/Space/{resourceName}") != null ? "Space" : "Unknown";
-                        Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {path}");
-                        return path;
-                    }
-                }
-            }
-            else if (resource is Texture2D)
-            {
-                var allImages = Resources.LoadAll<Texture2D>("360 Images");
-                foreach (var image in allImages)
-                {
-                    if (image == resource)
-                    {
-                        string path = Resources.Load<Texture2D>($"360 Images/{resourceName}") != null ? "360 Images" :
-                                     Resources.Load<Texture2D>($"360 Images/Nature/{resourceName}") != null ? "Nature" :
-                                     Resources.Load<Texture2D>($"360 Images/Space/{resourceName}") != null ? "Space" : "Unknown";
-                        Debug.Log($"[GetCategoryFromResourcePath] Found category from path: {path}");
-                        return path;
-                    }
-                }
+                _progressText.gameObject.SetActive(true);
+                _progressText.text = "Starting initialization...";
             }
 
-            Debug.LogWarning($"[GetCategoryFromResourcePath] Could not determine category for resource: {resourceName}");
-            return "Unknown";
-        }
-
-        private string GetFullResourcePath(UnityEngine.Object resource)
-        {
-#if UNITY_EDITOR
-            return UnityEditor.AssetDatabase.GetAssetPath(resource);
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // On Android, we need to use UnityWebRequest to access files in StreamingAssets
+            yield return StartCoroutine(CopyAndroidStreamingAssets());
 #else
-            return $"Path in build: Resources/{resource.name}";
+            // On other platforms, we can copy directly
+            yield return StartCoroutine(CopyStreamingAssets());
 #endif
+
+            // Now load the assets
+            LoadAssetsFromPersistentDataPath();
+
+            // Create the pool after loading assets
+            CreatePool();
+
+            if (_progressText != null)
+            {
+                _progressText.text = "Initialization complete!";
+                StartCoroutine(HideProgressAfterDelay(2f));
+            }
+
+            _isInitialized = true;
+            
+            // Initial refresh and update
+            RefreshItems();
+            UpdateCarousel();
+        }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private IEnumerator CopyAndroidStreamingAssets()
+        {
+            // All folders use the same category structure and manifest system
+            string[] allFolders = { "Videos", "360 Images", "Thumbnails", "Audio", "Data" };
+            string[] categories = { "Nature", "Space", "Relaxation" };
+            
+            UpdateProgress("Preparing to copy files...", 0);
+            yield return null;
+
+            int totalOperations = allFolders.Length * categories.Length;
+            int currentOperation = 0;
+
+            // Handle all folders with categories using manifests
+            foreach (var folder in allFolders)
+            {
+                string persistentFolder = Path.Combine(Application.persistentDataPath, folder);
+                Directory.CreateDirectory(persistentFolder);
+
+                foreach (var category in categories)
+                {
+                    string categoryFolder = Path.Combine(persistentFolder, category);
+                    Directory.CreateDirectory(categoryFolder);
+
+                    string manifestPath = Path.Combine(Application.streamingAssetsPath, folder, category, "files.txt");
+                    using (UnityWebRequest listRequest = UnityWebRequest.Get(manifestPath))
+                    {
+                        yield return listRequest.SendWebRequest();
+
+                        if (listRequest.result == UnityWebRequest.Result.Success)
+                        {
+                            string[] files = listRequest.downloadHandler.text.Split('\n');
+                            List<string> filesToCopy = new List<string>();
+
+                            foreach (string file in files)
+                            {
+                                string trimmedFile = file.Trim();
+                                if (string.IsNullOrEmpty(trimmedFile)) continue;
+
+                                string targetPath = Path.Combine(categoryFolder, trimmedFile);
+                                if (!File.Exists(targetPath))
+                                {
+                                    filesToCopy.Add(trimmedFile);
+                                }
+                            }
+
+                            yield return StartCoroutine(CopyFilesInParallel(folder, category, filesToCopy));
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"Failed to read manifest for {folder}/{category}: {listRequest.error}");
+                        }
+                    }
+
+                    currentOperation++;
+                    UpdateProgress($"Processed {folder}/{category}", (float)currentOperation / totalOperations);
+                    yield return null;
+                }
+            }
+        }
+
+        private IEnumerator CopyFilesInParallel(string folder, string category, List<string> filesToCopy)
+        {
+            List<UnityWebRequest> activeRequests = new List<UnityWebRequest>();
+            int maxConcurrentRequests = 3;
+
+            for (int i = 0; i < filesToCopy.Count; i++)
+            {
+                string file = filesToCopy[i];
+                string sourceUrl = Path.Combine(Application.streamingAssetsPath, folder, category, file);
+                string targetPath = Path.Combine(Application.persistentDataPath, folder, category, file);
+
+                UnityWebRequest www = UnityWebRequest.Get(sourceUrl);
+                activeRequests.Add(www);
+                www.SendWebRequest();
+
+                if (activeRequests.Count >= maxConcurrentRequests || i == filesToCopy.Count - 1)
+                {
+                    bool allRequestsDone;
+                    do
+                    {
+                        allRequestsDone = true;
+                        foreach (var request in activeRequests)
+                        {
+                            if (!request.isDone)
+                            {
+                                allRequestsDone = false;
+                                break;
+                            }
+                        }
+                        yield return null;
+                    } while (!allRequestsDone);
+
+                    for (int j = 0; j < activeRequests.Count; j++)
+                    {
+                        var request = activeRequests[j];
+                        if (request.result == UnityWebRequest.Result.Success)
+                        {
+                            string fileName = filesToCopy[i - (activeRequests.Count - 1) + j];
+                            string filePath = Path.Combine(Application.persistentDataPath, folder, category, fileName);
+                            File.WriteAllBytes(filePath, request.downloadHandler.data);
+                            LogManager.Instance?.LogCustomMessage($"Copied {fileName} to {filePath}", "AssetCopy");
+                        }
+                        request.Dispose();
+                    }
+
+                    activeRequests.Clear();
+                }
+
+                UpdateProgress($"Copying {folder}/{category}", (float)(i + 1) / filesToCopy.Count);
+                yield return null;
+            }
+        }
+#else
+        private IEnumerator CopyStreamingAssets()
+        {
+            // Media folders that use categories
+            string[] mediaFolders = { "Videos", "360 Images", "Thumbnails" };
+            // Support folders that don't use categories
+            string[] supportFolders = { "Audio", "Data" };
+            
+            UpdateProgress("Preparing to copy files...", 0);
+            yield return null;
+
+            // First, scan all files that need to be copied
+            Dictionary<string, string> filesToCopy = new Dictionary<string, string>();
+            int totalFiles = 0;
+
+            // Handle media folders with categories
+            foreach (var folder in mediaFolders)
+            {
+                string srcPath = Path.Combine(Application.streamingAssetsPath, folder);
+                string dstPath = Path.Combine(Application.persistentDataPath, folder);
+
+                if (!Directory.Exists(srcPath)) continue;
+
+                Directory.CreateDirectory(dstPath);
+
+                string[] files = Directory.GetFiles(srcPath, "*.*", SearchOption.AllDirectories);
+                foreach (string file in files)
+                {
+                    string relativePath = file.Substring(srcPath.Length + 1);
+                    string targetPath = Path.Combine(dstPath, relativePath);
+                    string targetDir = Path.GetDirectoryName(targetPath);
+
+                    if (!File.Exists(targetPath))
+                    {
+                        filesToCopy[file] = targetPath;
+                        totalFiles++;
+                    }
+                }
+            }
+
+            // Handle support folders
+            foreach (var folder in supportFolders)
+            {
+                string srcPath = Path.Combine(Application.streamingAssetsPath, folder);
+                string dstPath = Path.Combine(Application.persistentDataPath, folder);
+
+                if (!Directory.Exists(srcPath)) continue;
+
+                Directory.CreateDirectory(dstPath);
+
+                // Copy all .txt and .wav files directly
+                foreach (string file in Directory.GetFiles(srcPath, "*.*", SearchOption.TopDirectoryOnly))
+                {
+                    string ext = Path.GetExtension(file).ToLower();
+                    if (ext == ".txt" || ext == ".wav")
+                    {
+                        string fileName = Path.GetFileName(file);
+                        string targetPath = Path.Combine(dstPath, fileName);
+
+                        if (!File.Exists(targetPath))
+                        {
+                            filesToCopy[file] = targetPath;
+                            totalFiles++;
+                        }
+                    }
+                }
+            }
+
+            if (totalFiles == 0)
+            {
+                yield break;
+            }
+
+            // Now copy files in batches
+            int currentFile = 0;
+            int batchSize = 10;
+            List<string> currentBatch = new List<string>();
+
+            foreach (var kvp in filesToCopy)
+            {
+                currentBatch.Add(kvp.Key);
+                
+                if (currentBatch.Count >= batchSize || currentFile == totalFiles - 1)
+                {
+                    foreach (string file in currentBatch)
+                    {
+                        string targetPath = filesToCopy[file];
+                        string targetDir = Path.GetDirectoryName(targetPath);
+                        
+                        if (!Directory.Exists(targetDir))
+                        {
+                            Directory.CreateDirectory(targetDir);
+                        }
+
+                        File.Copy(file, targetPath, true);
+                        currentFile++;
+                        
+                        UpdateProgress($"Copying files", (float)currentFile / totalFiles);
+                    }
+                    
+                    currentBatch.Clear();
+                    yield return null;
+                }
+            }
+        }
+#endif
+
+        private void UpdateProgress(string status, float progress)
+        {
+            if (_progressText != null)
+            {
+                _progressText.text = $"{status}\n{(progress * 100):F0}%";
+            }
+            
+            if (_debugLogProgress)
+            {
+                Debug.Log($"[Carousel] {status} - {(progress * 100):F0}%");
+            }
+        }
+
+        private IEnumerator HideProgressAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (_progressText != null)
+            {
+                _progressText.gameObject.SetActive(false);
+            }
         }
 
         private void CreatePool()
@@ -339,8 +448,6 @@ namespace HKCarouselLayoutGroup
             _lastSelectedIndex = -1;
             _needsUpdate = true;
         }
-
-
 
         void Update()
         {
@@ -628,8 +735,187 @@ namespace HKCarouselLayoutGroup
             _isDragging = false;
         }
 
+        private string GetPlayableVideoPath(string originalPath)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // On Android, we need to use the copied file in persistentDataPath
+            string fileName = Path.GetFileName(originalPath);
+            string category = Path.GetFileName(Path.GetDirectoryName(originalPath));
+            string persistentPath = Path.Combine(Application.persistentDataPath, "Videos", category, fileName);
+            
+            // Ensure the file exists in persistentDataPath
+            if (!File.Exists(persistentPath))
+            {
+                Debug.LogError($"[GetPlayableVideoPath] Video file not found in persistentDataPath: {persistentPath}");
+                return string.Empty;
+            }
 
+            // Use file:// protocol for local files on Android
+            return "file://" + persistentPath;
+#else
+            // On other platforms, we can use the original path
+            return originalPath;
+#endif
+        }
 
+        private string GetPlayable360ImagePath(string originalPath)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // On Android, we need to use the copied file in persistentDataPath
+            string fileName = Path.GetFileName(originalPath);
+            string category = Path.GetFileName(Path.GetDirectoryName(originalPath));
+            string persistentPath = Path.Combine(Application.persistentDataPath, "360 Images", category, fileName);
+            
+            // Ensure the file exists in persistentDataPath
+            if (!File.Exists(persistentPath))
+            {
+                Debug.LogError($"[GetPlayable360ImagePath] 360° image file not found in persistentDataPath: {persistentPath}");
+                return string.Empty;
+            }
+
+            // Use file:// protocol for local files on Android
+            return "file://" + persistentPath;
+#else
+            // On other platforms, we can use the original path
+            return originalPath;
+#endif
+        }
+
+        void LoadAssetsFromPersistentDataPath()
+        {
+            var loadedElements = new List<HKCarouselElementData>();
+
+            Debug.Log("[CAROUSEL] Starting to load assets...");
+
+            // Add Home card at the beginning
+            loadedElements.Add(new HKCarouselElementData
+            {
+                Name = "Home",
+                Category = "Navigation",
+                IsSceneLink = true,
+                SceneIndex = 1,
+                ThumbnailPath = "Thumbnails/home"
+            });
+
+            Debug.Log("[CAROUSEL] Added Home card");
+
+            // Videos
+            string videosRoot = Path.Combine(Application.persistentDataPath, "Videos");
+            if (Directory.Exists(videosRoot))
+            {
+                foreach (var categoryDir in Directory.GetDirectories(videosRoot))
+                {
+                    string category = Path.GetFileName(categoryDir);
+                    foreach (var videoFile in Directory.GetFiles(categoryDir, "*.mp4"))
+                    {
+                        string name = Path.GetFileNameWithoutExtension(videoFile);
+                        Debug.Log($"[LoadAssetsFromPersistentDataPath] Found video: {name} in category: {category}");
+
+                        // Check for thumbnail in both PersistentDataPath and StreamingAssets
+                        string thumbnailPath = Path.Combine(Application.persistentDataPath, "Thumbnails", category, name + ".png");
+                        if (!File.Exists(thumbnailPath))
+                        {
+                            thumbnailPath = Path.Combine(Application.streamingAssetsPath, "Thumbnails", category, name + ".png");
+                        }
+
+                        // Get the playable path for the video
+                        string playablePath = GetPlayableVideoPath(videoFile);
+                        if (string.IsNullOrEmpty(playablePath))
+                        {
+                            Debug.LogError($"[LoadAssetsFromPersistentDataPath] Failed to get playable path for video: {videoFile}");
+                            continue;
+                        }
+
+                        loadedElements.Add(new HKCarouselElementData
+                        {
+                            Name = name,
+                            Category = category,
+                            VideoPath = playablePath,
+                            ThumbnailPath = File.Exists(thumbnailPath) ? thumbnailPath : null,
+                            IsImage360 = false
+                        });
+                    }
+                }
+            }
+
+            // 360 Images
+            string imagesRoot = Path.Combine(Application.persistentDataPath, "360 Images");
+            if (Directory.Exists(imagesRoot))
+            {
+                foreach (var categoryDir in Directory.GetDirectories(imagesRoot))
+                {
+                    string category = Path.GetFileName(categoryDir);
+                    foreach (var imageFile in Directory.GetFiles(categoryDir, "*.png"))
+                    {
+                        string name = Path.GetFileNameWithoutExtension(imageFile);
+                        Debug.Log($"[LoadAssetsFromPersistentDataPath] Found 360° image: {name} in category: {category}");
+
+                        // Check for thumbnail in both PersistentDataPath and StreamingAssets
+                        string thumbnailPath = Path.Combine(Application.persistentDataPath, "Thumbnails", category, name + ".png");
+                        if (!File.Exists(thumbnailPath))
+                        {
+                            thumbnailPath = Path.Combine(Application.streamingAssetsPath, "Thumbnails", category, name + ".png");
+                        }
+
+                        // Get the playable path for the 360° image
+                        string playablePath = GetPlayable360ImagePath(imageFile);
+                        if (string.IsNullOrEmpty(playablePath))
+                        {
+                            Debug.LogError($"[LoadAssetsFromPersistentDataPath] Failed to get playable path for 360° image: {imageFile}");
+                            continue;
+                        }
+
+                        loadedElements.Add(new HKCarouselElementData
+                        {
+                            Name = name,
+                            Category = category,
+                            VideoPath = playablePath,
+                            ThumbnailPath = File.Exists(thumbnailPath) ? thumbnailPath : null,
+                            IsImage360 = true
+                        });
+                    }
+                }
+            }
+
+            // Sort elements by Category, then Name
+            loadedElements.Sort((a, b) =>
+            {
+                // Always keep Home first
+                if (a.IsSceneLink) return -1;
+                if (b.IsSceneLink) return 1;
+
+                int catCompare = string.Compare(a.Category, b.Category, System.StringComparison.OrdinalIgnoreCase);
+                if (catCompare != 0) return catCompare;
+                return string.Compare(a.Name, b.Name, System.StringComparison.OrdinalIgnoreCase);
+            });
+
+            Debug.Log($"[CAROUSEL] Total elements loaded: {loadedElements.Count}");
+
+            // Assign to carousel
+            var fi = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>)
+                .GetField("_carouselElements", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (fi != null)
+            {
+                fi.SetValue(this, loadedElements);
+
+                // Set default selected index to middle
+                if (loadedElements.Count > 0)
+                {
+                    var defaultIndexField = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>)
+                        .GetField("_defaultSelectedIndex", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (defaultIndexField != null)
+                    {
+                        int middleIndex = Mathf.FloorToInt(loadedElements.Count / 2);
+                        defaultIndexField.SetValue(this, middleIndex);
+                    }
+                }
+            }
+
+            // Refresh carousel UI
+            RefreshItems();
+            UpdateCarousel();
+        }
     }
 
 
@@ -722,5 +1008,77 @@ namespace HKCarouselLayoutGroup
         }
 
 
+    }
+}
+
+public static class AssetCopyUtility
+{
+    public static IEnumerator CopyStreamingAssetsToPersistent(string relativePath)
+    {
+        string sourcePath = Path.Combine(Application.streamingAssetsPath, relativePath);
+        string destPath = Path.Combine(Application.persistentDataPath, relativePath);
+
+        if (File.Exists(destPath))
+            yield break; // Already copied
+
+        string destDir = Path.GetDirectoryName(destPath);
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        using (UnityWebRequest www = UnityWebRequest.Get(sourcePath))
+        {
+            yield return www.SendWebRequest();
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                File.WriteAllBytes(destPath, www.downloadHandler.data);
+            }
+            else
+            {
+                Debug.LogError("Failed to copy " + sourcePath + " to " + destPath);
+            }
+        }
+#else
+        File.Copy(sourcePath, destPath, true);
+        yield return null;
+#endif
+    }
+
+    public static IEnumerator CopyDirectory(string sourceDir, string destDir)
+    {
+        if (!Directory.Exists(destDir))
+            Directory.CreateDirectory(destDir);
+
+        // Copy all files
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            string fileName = Path.GetFileName(file);
+            string destFile = Path.Combine(destDir, fileName);
+#if UNITY_ANDROID && !UNITY_EDITOR
+            string androidPath = Path.Combine(sourceDir, fileName);
+            using (UnityEngine.Networking.UnityWebRequest www = UnityEngine.Networking.UnityWebRequest.Get(androidPath))
+            {
+                yield return www.SendWebRequest();
+                if (www.result == UnityEngine.Networking.UnityWebRequest.Result.Success)
+                {
+                    File.WriteAllBytes(destFile, www.downloadHandler.data);
+                }
+                else
+                {
+                    Debug.LogError("Failed to copy " + androidPath + " to " + destFile);
+                }
+            }
+#else
+            File.Copy(file, destFile, true);
+            yield return null;
+#endif
+        }
+
+        // Copy all subdirectories recursively
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            string dirName = Path.GetFileName(dir);
+            yield return CopyDirectory(dir, Path.Combine(destDir, dirName));
+        }
     }
 }

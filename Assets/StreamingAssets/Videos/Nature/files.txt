@@ -1,0 +1,5 @@
+files.txt.meta
+Spiaggia.mp4
+Spiaggia.mp4.meta
+Teatro.mp4
+Teatro.mp4.meta
