@@ -17,6 +17,18 @@ namespace HKCarouselLayoutGroup
 
         private void OnNewItemSelected(int index)
         {
+            if (_carouselLayoutGroup == null)
+            {
+                Debug.LogWarning("[CarouselValueListener] Carousel layout group reference is null");
+                return;
+            }
+
+            if (index < 0)
+            {
+                Debug.LogWarning("[CarouselValueListener] Invalid index: " + index);
+                return;
+            }
+
             HKCarouselElementData carouselElementData = _carouselLayoutGroup.GetElementDataFromIndex(index);
 
             if (carouselElementData != null)

@@ -12,6 +12,7 @@ using HKCarouselLayoutGroup;
 using UnityEngine.Networking;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using System.Linq;
 
 
 public class XR360CarouselController : MonoBehaviour
@@ -75,6 +76,10 @@ public class XR360CarouselController : MonoBehaviour
             return Path.Combine(directory, "ratings.json");
         }
     }
+
+    private List<HKCarouselElementData> cachedElements;
+    private Dictionary<string, bool> fileExistsCache = new Dictionary<string, bool>();
+    private const int BATCH_SIZE = 10; // Number of items to load per frame
 
     private void CopyInitialRatingFile()
     {
@@ -749,23 +754,24 @@ public class XR360CarouselController : MonoBehaviour
     {
         try
         {
-            Debug.Log($"[PATH] Processing path: {originalPath}");
-
             // Remove file:/// prefix if present
             if (originalPath.StartsWith("file:///"))
             {
                 originalPath = originalPath.Substring("file:///".Length);
-                Debug.Log($"[PATH] Removed file:/// prefix, path is now: {originalPath}");
             }
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-            // Extract category and filename from the original path
+            // Check cache first
+            if (fileExistsCache.TryGetValue(originalPath, out bool exists))
+            {
+                return exists ? originalPath : null;
+            }
+
+            // Extract media type, category and filename
             string[] pathParts = originalPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
             string mediaType = string.Empty;
             string category = string.Empty;
             string fileName = string.Empty;
 
-            // Parse path parts to get mediaType, category and filename
             for (int i = 0; i < pathParts.Length; i++)
             {
                 if (pathParts[i].Equals("Videos", StringComparison.OrdinalIgnoreCase) || 
@@ -773,7 +779,7 @@ public class XR360CarouselController : MonoBehaviour
                     pathParts[i].Equals("Audio", StringComparison.OrdinalIgnoreCase))
                 {
                     mediaType = pathParts[i];
-                    if (i + 2 < pathParts.Length) // Make sure we have category and filename
+                    if (i + 2 < pathParts.Length)
                     {
                         category = pathParts[i + 1];
                         fileName = pathParts[i + 2];
@@ -784,51 +790,20 @@ public class XR360CarouselController : MonoBehaviour
 
             if (string.IsNullOrEmpty(mediaType) || string.IsNullOrEmpty(category) || string.IsNullOrEmpty(fileName))
             {
-                Debug.LogError($"[PATH] Failed to parse path parts from: {originalPath}");
-                return originalPath;
+                fileExistsCache[originalPath] = false;
+                return null;
             }
 
-            string fullPath = $"/sdcard/Android/data/{Application.identifier}/files/{mediaType}/{category}/{fileName}";
-            Debug.Log($"[PATH] Constructed Android path: {fullPath}");
-            return fullPath;
-#else
-            // For other platforms or editor, use persistentDataPath
-            if (originalPath.Contains("/Android/data/" + Application.identifier + "/files/"))
-            {
-                Debug.Log($"[PATH] Using direct path: {originalPath}");
-                return originalPath;
-            }
-
-            string basePath = Application.persistentDataPath;
-            string relativePath = originalPath;
-            string[] prefixesToRemove = new[] { "Videos/", "360 Images/", "Audio/", "Videos\\", "360 Images\\", "Audio\\" };
-            foreach (var prefix in prefixesToRemove)
-            {
-                if (relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    relativePath = relativePath.Substring(prefix.Length);
-                    break;
-                }
-            }
-
-            // Determine media type from original path
-            string mediaType;
-            if (originalPath.ToLower().Contains("video"))
-                mediaType = "Videos";
-            else if (originalPath.ToLower().Contains("audio"))
-                mediaType = "Audio";
-            else
-                mediaType = "360 Images";
-
-            string fullPath = Path.Combine(basePath, mediaType, relativePath);
-            Debug.Log($"[PATH] Constructed non-Android path: {fullPath}");
-            return fullPath;
-#endif
+            string fullPath = Path.Combine(Application.persistentDataPath, mediaType, category, fileName);
+            bool fileExists = File.Exists(fullPath);
+            fileExistsCache[originalPath] = fileExists;
+            
+            return fileExists ? fullPath : null;
         }
-        catch (Exception e)
+        catch (Exception)
         {
-            Debug.LogError($"[PATH] Error in GetCorrectPath: {e.Message}");
-            return originalPath;
+            fileExistsCache[originalPath] = false;
+            return null;
         }
     }
 
@@ -1143,27 +1118,37 @@ public class XR360CarouselController : MonoBehaviour
             string sourcePath = Path.Combine(Application.streamingAssetsPath, folder);
             string targetPath = Path.Combine(Application.persistentDataPath, folder);
             
-            if (!Directory.Exists(targetPath))
+            try
             {
-                Directory.CreateDirectory(targetPath);
-            }
-
-            // Copy all subfolders and files
-            foreach (string dirPath in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
-            {
-                string newDirPath = dirPath.Replace(sourcePath, targetPath);
-                if (!Directory.Exists(newDirPath))
+                // Create target directory if it doesn't exist
+                if (!Directory.Exists(targetPath))
                 {
-                    Directory.CreateDirectory(newDirPath);
+                    Directory.CreateDirectory(targetPath);
+                    Debug.Log($"[COPY] Created directory: {targetPath}");
+                }
+
+                // Copy all subfolders and files
+                foreach (string dirPath in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
+                {
+                    string newDirPath = dirPath.Replace(sourcePath, targetPath);
+                    if (!Directory.Exists(newDirPath))
+                    {
+                        Directory.CreateDirectory(newDirPath);
+                        Debug.Log($"[COPY] Created subdirectory: {newDirPath}");
+                    }
+                }
+
+                foreach (string filePath in Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories))
+                {
+                    string newFilePath = filePath.Replace(sourcePath, targetPath);
+                    File.Copy(filePath, newFilePath, true);
+                    Debug.Log($"[COPY] Copied file: {Path.GetFileName(filePath)} to {newFilePath}");
                 }
             }
-
-            foreach (string filePath in Directory.GetFiles(sourcePath, "*.*", SearchOption.AllDirectories))
+            catch (Exception e)
             {
-                string newFilePath = filePath.Replace(sourcePath, targetPath);
-                File.Copy(filePath, newFilePath, true);
-                
-                Debug.Log($"Copied file: {Path.GetFileName(filePath)} to {newFilePath}");
+                Debug.LogError($"[COPY] Error copying {folder}: {e.Message}");
+                // Continue with next folder instead of breaking
             }
 
             currentProgress += progressPerFolder;
@@ -1175,6 +1160,17 @@ public class XR360CarouselController : MonoBehaviour
     }
 
     void LoadAssetsFromPersistentDataPath()
+    {
+        if (cachedElements != null)
+        {
+            ApplyElementsToCarousel(cachedElements);
+            return;
+        }
+
+        StartCoroutine(LoadAssetsAsync());
+    }
+
+    private IEnumerator LoadAssetsAsync()
     {
         var loadedElements = new List<HKCarouselElementData>();
 
@@ -1192,10 +1188,15 @@ public class XR360CarouselController : MonoBehaviour
         string videosRoot = Path.Combine(Application.persistentDataPath, "Videos");
         if (Directory.Exists(videosRoot))
         {
-            foreach (var categoryDir in Directory.GetDirectories(videosRoot))
+            var categoryDirs = Directory.GetDirectories(videosRoot);
+            int processedItems = 0;
+
+            foreach (var categoryDir in categoryDirs)
             {
                 string category = Path.GetFileName(categoryDir);
-                foreach (var videoFile in Directory.GetFiles(categoryDir, "*.mp4"))
+                var videoFiles = Directory.GetFiles(categoryDir, "*.mp4");
+
+                foreach (var videoFile in videoFiles)
                 {
                     string fileName = Path.GetFileNameWithoutExtension(videoFile);
                     string relativePath = Path.Combine("Videos", category, Path.GetFileName(videoFile));
@@ -1205,11 +1206,16 @@ public class XR360CarouselController : MonoBehaviour
                         Name = fileName,
                         Category = category,
                         VideoPath = relativePath,
-                        ThumbnailPath = $"Thumbnails/Videos/{category}/{fileName}",
+                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
                         IsImage360 = false
                     });
-                    
-                    Debug.Log($"[CAROUSEL] Added video: {fileName} from category: {category}");
+
+                    processedItems++;
+                    if (processedItems % BATCH_SIZE == 0)
+                    {
+                        ApplyElementsToCarousel(loadedElements);
+                        yield return null;
+                    }
                 }
             }
         }
@@ -1218,27 +1224,37 @@ public class XR360CarouselController : MonoBehaviour
         string imagesRoot = Path.Combine(Application.persistentDataPath, "360 Images");
         if (Directory.Exists(imagesRoot))
         {
-            foreach (var categoryDir in Directory.GetDirectories(imagesRoot))
+            var categoryDirs = Directory.GetDirectories(imagesRoot);
+            int processedItems = 0;
+
+            foreach (var categoryDir in categoryDirs)
             {
                 string category = Path.GetFileName(categoryDir);
-                foreach (var imageFile in Directory.GetFiles(categoryDir, "*.*"))
+                var imageFiles = Directory.GetFiles(categoryDir, "*.*")
+                    .Where(f => {
+                        string ext = Path.GetExtension(f).ToLower();
+                        return ext == ".jpg" || ext == ".png";
+                    });
+
+                foreach (var imageFile in imageFiles)
                 {
-                    string ext = Path.GetExtension(imageFile).ToLower();
-                    if (ext == ".jpg" || ext == ".png")
+                    string fileName = Path.GetFileNameWithoutExtension(imageFile);
+                    string relativePath = Path.Combine("360 Images", category, Path.GetFileName(imageFile));
+                    
+                    loadedElements.Add(new HKCarouselElementData
                     {
-                        string fileName = Path.GetFileNameWithoutExtension(imageFile);
-                        string relativePath = Path.Combine("360 Images", category, Path.GetFileName(imageFile));
-                        
-                        loadedElements.Add(new HKCarouselElementData
-                        {
-                            Name = fileName,
-                            Category = category,
-                            VideoPath = relativePath,
-                            ThumbnailPath = $"Thumbnails/360 Images/{category}/{fileName}",
-                            IsImage360 = true
-                        });
-                        
-                        Debug.Log($"[CAROUSEL] Added 360 image: {fileName} from category: {category}");
+                        Name = fileName,
+                        Category = category,
+                        VideoPath = relativePath,
+                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
+                        IsImage360 = true
+                    });
+
+                    processedItems++;
+                    if (processedItems % BATCH_SIZE == 0)
+                    {
+                        ApplyElementsToCarousel(loadedElements);
+                        yield return null;
                     }
                 }
             }
@@ -1246,47 +1262,48 @@ public class XR360CarouselController : MonoBehaviour
 
         // Sort elements by category and name, keeping Home first
         loadedElements.Sort((a, b) => {
-            // Always keep Home first
             if (a.IsSceneLink) return -1;
             if (b.IsSceneLink) return 1;
 
-            int catCompare = string.Compare(a.Category, b.Category, System.StringComparison.OrdinalIgnoreCase);
-            if (catCompare != 0) return catCompare;
-            return string.Compare(a.Name, b.Name, System.StringComparison.OrdinalIgnoreCase);
+            int catCompare = string.Compare(a.Category, b.Category, StringComparison.OrdinalIgnoreCase);
+            return catCompare != 0 ? catCompare : 
+                string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
         });
 
-        Debug.Log($"[CAROUSEL] Total elements loaded: {loadedElements.Count}");
+        cachedElements = loadedElements;
+        ApplyElementsToCarousel(loadedElements);
+    }
 
-        // Use reflection to set the carousel elements
+    private void ApplyElementsToCarousel(List<HKCarouselElementData> elements)
+    {
+        if (carousel360 == null) return;
+
         var carouselType = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>);
-        var elementsField = carouselType.GetField("_carouselElements", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var defaultIndexField = carouselType.GetField("_defaultSelectedIndex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var elementsField = carouselType.GetField("_carouselElements", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var defaultIndexField = carouselType.GetField("_defaultSelectedIndex", 
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
-        if (elementsField != null && carousel360 != null)
+        if (elementsField != null)
         {
-            elementsField.SetValue(carousel360, loadedElements);
+            elementsField.SetValue(carousel360, elements);
 
-            // Set default selected index to middle if there are elements
-            if (loadedElements.Count > 0 && defaultIndexField != null)
+            if (elements.Count > 0 && defaultIndexField != null)
             {
-                int middleIndex = Mathf.FloorToInt(loadedElements.Count / 2f);
+                int middleIndex = Mathf.FloorToInt(elements.Count / 2f);
                 defaultIndexField.SetValue(carousel360, middleIndex);
             }
 
-            // Force refresh
-            var refreshMethod = carouselType.GetMethod("RefreshItems", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var updateMethod = carouselType.GetMethod("UpdateCarousel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var refreshMethod = carouselType.GetMethod("RefreshItems", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var updateMethod = carouselType.GetMethod("UpdateCarousel", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             if (refreshMethod != null && updateMethod != null)
             {
                 refreshMethod.Invoke(carousel360, null);
                 updateMethod.Invoke(carousel360, null);
-                Debug.Log("[CAROUSEL] Carousel refreshed and updated");
             }
-        }
-        else
-        {
-            Debug.LogError("[CAROUSEL] Failed to set carousel elements - missing field or carousel reference");
         }
     }
 

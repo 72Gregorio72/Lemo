@@ -720,6 +720,16 @@ namespace HKCarouselLayoutGroup
         private void PlayVideo(string videoPath, VideoPlayer videoPlayer)
         {
             Debug.Log($"[PlayVideo] Attempting to load video from path: {videoPath}");
+            
+            string fullPath = GetCorrectPath(videoPath);
+            Debug.Log($"[PlayVideo] Full path: {fullPath}");
+            
+            if (!File.Exists(fullPath))
+            {
+                Debug.LogError($"[PlayVideo] Video file not found at path: {fullPath}");
+                return;
+            }
+
             videoPlayer.enabled = true;
             string fileName = Path.GetFileNameWithoutExtension(videoPath);
             LoadTransformData(fileName);
@@ -727,31 +737,33 @@ namespace HKCarouselLayoutGroup
             float half = fadeOutDuration / 2f;
             sphereMaterial.SetFloat("_Visibility", 1f);
 
-            // Load video from Resources
-            VideoClip videoClip = Resources.Load<VideoClip>(videoPath);
-            if (videoClip == null)
-            {
-                Debug.LogError($"[PlayVideo] Failed to load video from Resources: {videoPath}. Make sure the file exists in the Resources folder and is included in the build.");
-                sphereMaterial.SetTexture("_MainTex", null);
-                return;
-            }
-            Debug.Log($"[PlayVideo] Successfully loaded video: {videoPath}");
+            // Configure video player
+            videoPlayer.playOnAwake = false;
+            videoPlayer.isLooping = true;
+            videoPlayer.renderMode = VideoRenderMode.MaterialOverride;
+            videoPlayer.targetMaterialRenderer = videoSphere.GetComponent<Renderer>();
+            videoPlayer.targetMaterialProperty = "_MainTex";
+            videoPlayer.aspectRatio = VideoAspectRatio.FitVertically;
+            videoPlayer.audioOutputMode = VideoAudioOutputMode.AudioSource;
+            videoPlayer.SetTargetAudioSource(0, audioSource);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            videoPlayer.url = "file://" + fullPath;
+#else
+            videoPlayer.url = fullPath;
+#endif
 
             // Create sequence: fade out -> clear old content -> update content -> fade in -> play audio
             sphereMaterial.DOFloat(0f, "_Visibility", half)
                 .SetEase(Ease.InOutSine)
                 .OnComplete(() =>
                 {
-                    // Only clear texture when switching to new content
-                    if (videoPlayer.clip != videoClip)
-                    {
-                        sphereMaterial.SetTexture("_MainTex", null);
-                    }
+                    // Clear old video
+                    videoPlayer.Stop();
                     
-                    // Small delay before setting new video
+                    // Small delay before starting new video
                     DOVirtual.DelayedCall(0.05f, () => 
                     {
-                        videoPlayer.clip = videoClip;
                         videoPlayer.Play();
 
                         // Start fade in and play audio when fade-in is halfway done
@@ -778,17 +790,16 @@ namespace HKCarouselLayoutGroup
                 return;
             }
 
-            Debug.Log($"[DisplayImageOnSphere] Attempting to load image from path: {imagePath}");
-            
-            // Load image from Resources
-            Texture2D texture = Resources.Load<Texture2D>(imagePath);
-            if (texture == null)
+            string fullPath = GetCorrectPath(imagePath);
+            Debug.Log($"[DisplayImageOnSphere] Full path: {fullPath}");
+
+            if (!File.Exists(fullPath))
             {
-                Debug.LogError($"[DisplayImageOnSphere] Failed to load image from Resources: {imagePath}. Make sure the file exists in the Resources folder and is included in the build.");
+                Debug.LogError($"[DisplayImageOnSphere] Image file not found at path: {fullPath}");
                 return;
             }
-            Debug.Log($"[DisplayImageOnSphere] Successfully loaded image: {imagePath}");
 
+            // Disable video player if active
             GameObject playerObject = GameObject.FindGameObjectWithTag("VideoPlayer");
             if (playerObject != null)
             {
@@ -803,42 +814,81 @@ namespace HKCarouselLayoutGroup
             string fileName = Path.GetFileNameWithoutExtension(imagePath);
             LoadTransformData(fileName);
 
-            texture.wrapMode = TextureWrapMode.Clamp;
-
             float half = fadeOutDuration / 2f;
             sphereMaterial.SetFloat("_Visibility", 1f);
 
-            // Create sequence: fade out -> clear old content -> update content -> fade in -> play audio
+            // Create sequence: fade out -> load image -> fade in -> play audio
             sphereMaterial.DOFloat(0f, "_Visibility", half)
                 .SetEase(Ease.InOutSine)
                 .OnComplete(() =>
                 {
-                    // Only clear if we're switching to a new texture
-                    Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
-                    if (currentTexture != texture)
+                    try
                     {
-                        sphereMaterial.SetTexture("_MainTex", null);
-                    }
-                    
-                    // Small delay before setting new texture
-                    DOVirtual.DelayedCall(0.05f, () => 
-                    {
-                        sphereMaterial.SetTexture("_MainTex", texture);
-
-                        // Start fade in and play audio when fade-in is halfway done
-                        sphereMaterial.DOFloat(1f, "_Visibility", half)
-                            .SetEase(Ease.InOutSine)
-                            .OnUpdate(() => 
+                        // Load and process image
+                        byte[] fileData = File.ReadAllBytes(fullPath);
+                        Texture2D texture = new Texture2D(2, 2);
+                        
+                        if (texture.LoadImage(fileData))
+                        {
+                            texture.wrapMode = TextureWrapMode.Clamp;
+                            
+                            // Clear old texture
+                            Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
+                            if (currentTexture != null && currentTexture != texture)
                             {
-                                float currentVisibility = sphereMaterial.GetFloat("_Visibility");
-                                // Start audio when we're halfway through the fade-in
-                                if (currentVisibility >= 0.5f && !audioSource.isPlaying)
+                                DestroyImmediate(currentTexture, true);
+                                sphereMaterial.SetTexture("_MainTex", null);
+                            }
+                            
+                            // Set new texture
+                            sphereMaterial.SetTexture("_MainTex", texture);
+
+                            // Fade in and play audio
+                            sphereMaterial.DOFloat(1f, "_Visibility", half)
+                                .SetEase(Ease.InOutSine)
+                                .OnUpdate(() => 
                                 {
-                                    TryPlayAudio();
-                                }
-                            });
-                    });
+                                    float currentVisibility = sphereMaterial.GetFloat("_Visibility");
+                                    if (currentVisibility >= 0.5f && !audioSource.isPlaying)
+                                    {
+                                        TryPlayAudio();
+                                    }
+                                });
+                        }
+                        else
+                        {
+                            Debug.LogError($"[DisplayImageOnSphere] Failed to load image data from: {fullPath}");
+                            DestroyImmediate(texture, true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"[DisplayImageOnSphere] Error loading image: {ex.Message}");
+                    }
                 });
+        }
+
+        private string GetCorrectPath(string originalPath)
+        {
+            try
+            {
+                Debug.Log($"[PATH] Processing path: {originalPath}");
+                
+                // Handle Android path
+#if UNITY_ANDROID && !UNITY_EDITOR
+                string path = Path.Combine(Application.persistentDataPath, originalPath);
+#else
+                string path = Path.Combine(Application.streamingAssetsPath, originalPath);
+#endif
+
+                Debug.Log($"[PATH] Final path: {path}");
+                return path;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[PATH] Error processing path: {ex.Message}");
+                return originalPath;
+            }
         }
 
         private void TryPlayAudio()

@@ -7,15 +7,47 @@ using DG.Tweening;
 
 namespace HKCarouselLayoutGroup
 {
+    public enum CarouselPrefabType
+    {
+        Large,
+        Small
+    }
+
+    [System.Serializable]
+    public class CarouselSizeConfig
+    {
+        public float maskFullHeight = 389.1801f;
+        public float maskSmallHeight = 300f;
+        public float spacing = 245f;
+        public float zOffset = 9.5f;
+        public float yOffset = 0f;
+    }
+
     [RequireComponent(typeof(RectTransform))]
     public class HKSceneCarouselLayoutGroup3D : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
+        [Header("Prefab Configuration")]
+        [SerializeField] private CarouselPrefabType prefabType = CarouselPrefabType.Large;
+        [SerializeField] private CarouselSizeConfig largeConfig = new CarouselSizeConfig 
+        {
+            maskFullHeight = 389.1801f,
+            maskSmallHeight = 300f,
+            spacing = 245f,
+            zOffset = 9.5f,
+            yOffset = 0f
+        };
+        [SerializeField] private CarouselSizeConfig smallConfig = new CarouselSizeConfig 
+        {
+            maskFullHeight = 300f,
+            maskSmallHeight = 250f,
+            spacing = 200f,
+            zOffset = 7.5f,
+            yOffset = 0f
+        };
+
         [Header("Main Settings")]
         [SerializeField] private int _defaultSelectedIndex = 0;
         [SerializeField, Min(0)] private float _scroll = 2;
-        [SerializeField] private float _spacing = 245;
-        [SerializeField] private float _zOffset = 9.5f;
-        [SerializeField] private float _yOffset = 0;
         [SerializeField] private float _rotationY = 10;
         [SerializeField] private float _scaleFactor = 0.9f;
         [SerializeField] private float _spacingModMulti = -0.008f;
@@ -52,11 +84,14 @@ namespace HKCarouselLayoutGroup
         private int _lastSelectedIndex = -1;
         private bool isScrolling = false;
         private float targetScroll;
+        private CarouselSizeConfig currentConfig;
 
         public int CurrentSelectedIndex { get; private set; }
 
         private void Start()
         {
+            // Set the current configuration based on prefab type
+            currentConfig = prefabType == CarouselPrefabType.Large ? largeConfig : smallConfig;
             CreateItems();
             UpdateCarousel();
         }
@@ -172,9 +207,10 @@ namespace HKCarouselLayoutGroup
                 float spacingMod = Mathf.Abs(rotY) * _spacingModMulti + 1;
                 float depthMod = Mathf.Abs(rotY) * _depthModMulti + 1;
 
-                float x = offset * _spacing * spacingMod;
-                float z = Mathf.Abs(offset) * _zOffset * depthMod;
-                float y = Mathf.Abs(offset) * _yOffset;
+                // Use current config for spacing and offsets
+                float x = offset * currentConfig.spacing * spacingMod;
+                float z = Mathf.Abs(offset) * currentConfig.zOffset * depthMod;
+                float y = Mathf.Abs(offset) * currentConfig.yOffset;
 
                 float scale = Mathf.Pow(_scaleFactor, Mathf.Abs(offset));
 
@@ -183,9 +219,37 @@ namespace HKCarouselLayoutGroup
                 item.localRotation = Quaternion.Euler(0, rotY, 0);
                 item.localScale = Vector3.one * scale;
 
-                // Update alpha based on distance from center
                 float distance = Mathf.Abs(offset);
                 float alpha = Mathf.Clamp01(1f - (distance * 0.7f));
+
+                // Handle mask height transition using current config
+                var imageBackground = item.Find("ImageBackground");
+                if (imageBackground != null)
+                {
+                    var videoPanel = imageBackground.Find("VideoPanel");
+                    if (videoPanel != null)
+                    {
+                        var mask = videoPanel.Find("Mask");
+                        if (mask != null)
+                        {
+                            var maskRect = mask.GetComponent<RectTransform>();
+                            if (maskRect != null)
+                            {
+                                const float CENTER_THRESHOLD = 0.9f;
+                                const float TRANSITION_SPEED = 8f;
+
+                                float targetHeight = (alpha > CENTER_THRESHOLD) ? 
+                                    currentConfig.maskSmallHeight : 
+                                    currentConfig.maskFullHeight;
+                                
+                                Vector2 sizeDelta = maskRect.sizeDelta;
+                                sizeDelta.y = Mathf.Lerp(sizeDelta.y, targetHeight, Time.deltaTime * TRANSITION_SPEED);
+                                maskRect.sizeDelta = sizeDelta;
+                            }
+                        }
+                    }
+                }
+
                 var demo = item.GetComponent<SceneCarouselElementDemo>();
                 if (demo != null)
                 {
@@ -227,7 +291,7 @@ namespace HKCarouselLayoutGroup
 
         public void OnDrag(PointerEventData eventData)
         {
-            float dragDelta = (eventData.position.x - _dragStartPos.x) / _spacing;
+            float dragDelta = (eventData.position.x - _dragStartPos.x) / currentConfig.spacing;
             _scroll -= dragDelta;
             _dragStartPos = eventData.position;
         }

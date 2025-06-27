@@ -31,6 +31,10 @@ namespace HKCarouselLayoutGroup
         [SerializeField] private float _depthModMulti = 0.2f;
         private bool _poolCreated = false;
 
+        [Header("Mask Animation Settings")]
+        [SerializeField] private float _maskNormalHeight = 200f;
+        [SerializeField] private float _maskSelectedHeight = 300f;
+        [SerializeField] private float _maskTransitionSpeed = 10f;
 
         [Header("Auto Snapping to nearest element")]
         [SerializeField] private bool _enableSnapping = true;
@@ -642,13 +646,59 @@ namespace HKCarouselLayoutGroup
                 float distance = Mathf.Abs(offset);
                 float alpha = Mathf.Clamp01(1f - (distance * 0.7f)); // More distance = lower alpha
 
+                // Handle mask height transition
+                Transform maskTransform = null;
+                
+                // Try to find mask through full hierarchy
+                var imageBackground = item.Find("ImageBackground");
+                if (imageBackground != null)
+                {
+                    var videoPanel = imageBackground.Find("VideoPanel");
+                    if (videoPanel != null)
+                    {
+                        var shadow = videoPanel.Find("Shadow");
+                        if (shadow != null)
+                        {
+                            maskTransform = shadow.Find("Mask");
+                        }
+                    }
+                }
+
+                // If not found, try direct search
+                if (maskTransform == null)
+                {
+                    maskTransform = item.GetComponentInChildren<Mask>()?.transform;
+                }
+
+                if (maskTransform != null)
+                {
+                    var maskRect = maskTransform.GetComponent<RectTransform>();
+                    if (maskRect != null)
+                    {
+                        const float FULL_HEIGHT = 389.1801f;
+                        const float SMALL_HEIGHT = 300f;
+                        const float CENTER_THRESHOLD = 0.9f; // Only shrink if very close to center
+                        const float TRANSITION_SPEED = 8f; // Adjust this to control smoothing speed
+
+                        // If this is the center item (alpha very close to 1), make it small
+                        // Otherwise keep it at full height
+                        float targetHeight = (alpha > CENTER_THRESHOLD) ? SMALL_HEIGHT : FULL_HEIGHT;
+                        
+                        // Smoothly lerp to target height
+                        Vector2 sizeDelta = maskRect.sizeDelta;
+                        sizeDelta.y = Mathf.Lerp(sizeDelta.y, targetHeight, Time.deltaTime * TRANSITION_SPEED);
+                        maskRect.sizeDelta = sizeDelta;
+                        
+                        // Debug the transition
+                        Debug.Log($"Item {i} - Alpha: {alpha}, Current Height: {sizeDelta.y}, Target Height: {targetHeight}, Is Center: {alpha > CENTER_THRESHOLD}");
+                    }
+                }
+
                 var demo = item.GetComponent<CarouselElementDemo>();
                 if (demo != null)
                 {
                     demo.SetCategoryAlpha(alpha);
                 }
-
-
             }
 
             List<(RectTransform item, float absOffset)> sorted = new();
@@ -702,11 +752,27 @@ namespace HKCarouselLayoutGroup
 
         public T GetElementDataFromIndex(int index)
         {
+            if (_carouselElements == null || _carouselElements.Count == 0)
+            {
+                Debug.LogWarning("[Carousel] Trying to access elements but the carousel is empty");
+                return null;
+            }
+            
+            if (index < 0 || index >= _carouselElements.Count)
+            {
+                Debug.LogWarning($"[Carousel] Index {index} is out of range. Valid range is 0 to {_carouselElements.Count - 1}");
+                return null;
+            }
+            
             return _carouselElements[index];
         }
 
         public int GetTrueSelectedIndex()
         {
+            if (_carouselElements == null || _carouselElements.Count == 0)
+            {
+                return -1;
+            }
             return CurrentSelectedIndex;
         }
 

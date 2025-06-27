@@ -12,6 +12,9 @@ public class MemoryGameManager : MonoBehaviour
     [Header("Posizioni 3x3 dove spawnare")]
     public List<Transform> cardPositions; // 9 posizioni
 
+    [Header("Container Reference")]
+    [SerializeField] private Transform cardContainer; // Reference to the "Card Container" GameObject
+
     private List<GameObject> spawnedCards = new List<GameObject>();
     private List<GameObject> selectedCards = new List<GameObject>();
 
@@ -38,6 +41,12 @@ public class MemoryGameManager : MonoBehaviour
 
     void Start()
     {
+        if (cardContainer == null)
+        {
+            Debug.LogError("Card Container is not assigned! Please assign it in the inspector.");
+            return;
+        }
+        
         winPointsText.text = "Partite vinte: " + winCount.ToString();
         pointsText.text = "Coppie trovate: " + points.ToString() + "/4";
         StartNewRound();
@@ -82,7 +91,7 @@ public class MemoryGameManager : MonoBehaviour
 
     void InstantiateCard(GameObject cardPrefab, Vector3 position, GameObject cardPosition)
     {
-        GameObject card = Instantiate(cardPrefab, position, Quaternion.identity);
+        GameObject card = Instantiate(cardPrefab, position, Quaternion.identity, cardContainer);
         card.GetComponent<MemoryCard>().Init(this);
         card.GetComponent<FollowCameraHeight>().currentRow = cardPosition;
         card.transform.localScale = new Vector3(1f, 1f, 1f); // Imposta la dimensione della carta

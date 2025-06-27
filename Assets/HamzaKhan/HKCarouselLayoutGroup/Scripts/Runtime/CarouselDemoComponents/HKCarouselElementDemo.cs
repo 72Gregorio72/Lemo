@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine.UI;
 using System.IO;
 using System.Collections.Generic;
+using System;
 
 namespace HKCarouselLayoutGroup
 {
@@ -12,6 +13,12 @@ namespace HKCarouselLayoutGroup
         [SerializeField] private TMP_Text categoryText;
         [SerializeField] private TMP_Text descriptionText;
         [SerializeField] private Image thumbnailImage;
+        [SerializeField] private RectTransform maskRect;
+
+        [Header("Mask Animation")]
+        [SerializeField] private float normalHeight = 200f;
+        [SerializeField] private float selectedHeight = 300f;
+        [SerializeField] private float transitionSpeed = 10f;
 
         [Header("Rating Display")]
         [SerializeField] private TMP_Text ratingAverageText;
@@ -61,28 +68,27 @@ namespace HKCarouselLayoutGroup
 
             if (thumbnailImage != null && !string.IsNullOrEmpty(data.ThumbnailPath))
             {
-                // First try loading as Texture2D
-                Texture2D thumbnailTexture = Resources.Load<Texture2D>(data.ThumbnailPath);
-                if (thumbnailTexture != null)
+                try
                 {
-                    // Convert Texture2D to Sprite
-                    Sprite thumbnailSprite = Sprite.Create(thumbnailTexture, 
-                        new Rect(0, 0, thumbnailTexture.width, thumbnailTexture.height), 
-                        new Vector2(0.5f, 0.5f));
-                    thumbnailImage.sprite = thumbnailSprite;
-                }
-                else
-                {
-                    // Fallback: try loading as Sprite directly
-                    Sprite thumbnailSprite = Resources.Load<Sprite>(data.ThumbnailPath);
-                    if (thumbnailSprite != null)
+                    // Load image file directly
+                    byte[] fileData = File.ReadAllBytes(data.ThumbnailPath);
+                    Texture2D thumbnailTexture = new Texture2D(2, 2);
+                    if (thumbnailTexture.LoadImage(fileData))
                     {
+                        // Convert Texture2D to Sprite
+                        Sprite thumbnailSprite = Sprite.Create(thumbnailTexture, 
+                            new Rect(0, 0, thumbnailTexture.width, thumbnailTexture.height), 
+                            new Vector2(0.5f, 0.5f));
                         thumbnailImage.sprite = thumbnailSprite;
                     }
                     else
                     {
-                        Debug.LogWarning($"[CarouselElementDemo] Failed to load thumbnail from path: {data.ThumbnailPath}");
+                        Debug.LogWarning($"[CarouselElementDemo] Failed to load thumbnail image data from path: {data.ThumbnailPath}");
                     }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[CarouselElementDemo] Error loading thumbnail from path: {data.ThumbnailPath}\nError: {ex.Message}");
                 }
             }
 
@@ -164,6 +170,16 @@ namespace HKCarouselLayoutGroup
                 var c = categoryText.color;
                 c.a = alpha;
                 categoryText.color = c;
+            }
+
+            // Handle mask height transition
+            if (maskRect != null)
+            {
+                // alpha is 1 when centered/selected, 0 when far away
+                float targetHeight = Mathf.Lerp(normalHeight, selectedHeight, alpha);
+                Vector2 sizeDelta = maskRect.sizeDelta;
+                sizeDelta.y = Mathf.Lerp(sizeDelta.y, targetHeight, Time.deltaTime * transitionSpeed);
+                maskRect.sizeDelta = sizeDelta;
             }
         }
 

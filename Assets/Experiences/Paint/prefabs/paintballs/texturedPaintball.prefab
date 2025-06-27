@@ -5073,7 +5073,6 @@ MonoBehaviour:
   m_AngularVelocityDamping: 1
   m_AngularVelocityScale: 1
   m_TrackPosition: 1
-  ForceKinematicFalse: 1
   m_SmoothPosition: 0
   m_SmoothPositionAmount: 8
   m_TightenPosition: 0.1
@@ -5124,4 +5123,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   amplitude: 0.25
   frequency: 1
-  massMultiplierOnGrab: 3
+  massMultiplierOnGrab: 5

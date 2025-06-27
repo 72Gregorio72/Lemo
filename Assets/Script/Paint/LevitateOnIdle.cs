@@ -24,12 +24,12 @@ public class LevitateOnIdle : MonoBehaviour
 
         originalMass = rb.mass;
         //startPosition = transform.position;
-        //timeOffset = Random.Range(0f, 2f * Mathf.PI); // Stagger bobbing
+        timeOffset = Random.Range(0f, 2f * Mathf.PI); // Stagger bobbing
 
         grabInteractable.selectEntered.AddListener(OnGrab);
 
         spawnPositionObject = GameObject.FindGameObjectWithTag("SpawnBalls");
-        //grabInteractable.selectExited.AddListener(OnRelease);
+        grabInteractable.selectExited.AddListener(OnRelease);
 
         // Start levitating
         rb.isKinematic = true;
@@ -62,14 +62,16 @@ public class LevitateOnIdle : MonoBehaviour
 
     private void OnRelease(SelectExitEventArgs args)
     {
-        startPosition = transform.position; // Reset float origin
+        Debug.Log("<color=green>Released: " + gameObject.name + "</color>");
+        rb.isKinematic = false;
+        rb.useGravity = true;
+        rb.mass = originalMass * massMultiplierOnGrab;
         timeOffset = Random.Range(0f, 2f * Mathf.PI);
-        rb.mass = originalMass;
     }
 
     void OnDestroy()
     {
         grabInteractable.selectEntered.RemoveListener(OnGrab);
-        //grabInteractable.selectExited.RemoveListener(OnRelease);
+        grabInteractable.selectExited.RemoveListener(OnRelease);
     }
 }

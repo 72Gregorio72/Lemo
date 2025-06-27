@@ -20,8 +20,26 @@ namespace HKCarouselLayoutGroup
 
         private void UpdateLabel(int index)
         {
+            if (carousel == null || categoryLabel == null)
+            {
+                return;
+            }
+
+            if (index < 0)
+            {
+                categoryLabel.text = "CATEGORY";
+                return;
+            }
+
             var element = carousel.GetElementDataFromIndex(index);
-            categoryLabel.text = element.Category?.ToUpperInvariant() ?? "CATEGORY";
+            if (element != null)
+            {
+                categoryLabel.text = element.Category?.ToUpperInvariant() ?? "CATEGORY";
+            }
+            else
+            {
+                categoryLabel.text = "CATEGORY";
+            }
         }
     }
 }

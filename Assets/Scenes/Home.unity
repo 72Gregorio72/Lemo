@@ -692,7 +692,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -27.600006, y: -310}
+  m_AnchoredPosition: {x: -27.600006, y: -422}
   m_SizeDelta: {x: 848.9, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &756192406
@@ -1221,7 +1221,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 0, y: 1.4}
   m_SizeDelta: {x: 2048, y: 1280}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1245141215
@@ -1947,11 +1947,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ae3ab77cd3761048bc6ad0b22d3db17, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _defaultSelectedIndex: 5
+  prefabType: 0
+  largeConfig:
+    maskFullHeight: 389.1801
+    maskSmallHeight: 300
+    spacing: 245
+    zOffset: 9.5
+    yOffset: 0
+  smallConfig:
+    maskFullHeight: 300
+    maskSmallHeight: 250
+    spacing: 200
+    zOffset: 7.5
+    yOffset: 0
+  _defaultSelectedIndex: 2
   _scroll: 6
-  _spacing: 254.61
-  _zOffset: 13
-  _yOffset: 0
   _rotationY: 13.26
   _scaleFactor: 0.7
   _spacingModMulti: 0
@@ -1959,21 +1969,17 @@ MonoBehaviour:
   sceneElements:
   - sceneName: Meditazione
     sceneIndex: 2
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
     description: Scopri un percorso guidato nella meditazione tra video, immagini
       ed audio immersivi
   - sceneName: Paint
     sceneIndex: 3
     thumbnailPath: 
-    description: Divertiti a disegnare
+    description: Divertiti dipingendo
   - sceneName: Memory
     sceneIndex: 4
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Memory Thumbnail
     description: metti alla prova la tua memoria!
-  - sceneName: Draw
-    sceneIndex: 5
-    thumbnailPath: 
-    description: Divertiti a disegnare
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
@@ -1995,8 +2001,8 @@ RectTransform:
   m_GameObject: {fileID: 230106463874518182}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 1245141214}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
