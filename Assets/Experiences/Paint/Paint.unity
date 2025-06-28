@@ -715,11 +715,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ae3ab77cd3761048bc6ad0b22d3db17, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  prefabType: 0
+  largeConfig:
+    maskFullHeight: 389.1801
+    maskSmallHeight: 300
+    spacing: 245
+    zOffset: 9.5
+    yOffset: 0
+  smallConfig:
+    maskFullHeight: 300
+    maskSmallHeight: 250
+    spacing: 200
+    zOffset: 7.5
+    yOffset: 0
   _defaultSelectedIndex: 1
   _scroll: 2
-  _spacing: 290
-  _zOffset: 13
-  _yOffset: 2
   _rotationY: 10
   _scaleFactor: 0.9
   _spacingModMulti: -0.008
