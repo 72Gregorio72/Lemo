@@ -12,11 +12,9 @@ public class MemoryGameManager : MonoBehaviour
     [Header("Posizioni 3x3 dove spawnare")]
     public List<Transform> cardPositions; // 9 posizioni
 
-    [Header("Container Reference")]
-    [SerializeField] private Transform cardContainer; // Reference to the "Card Container" GameObject
-
     private List<GameObject> spawnedCards = new List<GameObject>();
     private List<GameObject> selectedCards = new List<GameObject>();
+    private GameObject cardsContainer; // Container for all spawned cards
 
     public TextMeshProUGUI pointsText; // Riferimento al testo dei punti (se necessario)
 
@@ -41,15 +39,27 @@ public class MemoryGameManager : MonoBehaviour
 
     void Start()
     {
-        if (cardContainer == null)
-        {
-            Debug.LogError("Card Container is not assigned! Please assign it in the inspector.");
-            return;
-        }
+        // Create the container GameObject if it doesn't exist
+        CreateCardsContainer();
         
         winPointsText.text = "Partite vinte: " + winCount.ToString();
         pointsText.text = "Coppie trovate: " + points.ToString() + "/4";
         StartNewRound();
+    }
+
+    private void CreateCardsContainer()
+    {
+        // Destroy existing container if it exists
+        if (cardsContainer != null)
+        {
+            Destroy(cardsContainer);
+        }
+
+        // Create new container
+        cardsContainer = new GameObject("Cards_Container");
+        cardsContainer.transform.SetParent(transform); // Parent to the MemoryGameManager
+        cardsContainer.transform.localPosition = Vector3.zero;
+        cardsContainer.transform.localRotation = Quaternion.identity;
     }
 
     public void StartNewRound()
@@ -64,6 +74,9 @@ public class MemoryGameManager : MonoBehaviour
 
         matchCount = 0;
         ClearCards();
+
+        // Create new container for the new round
+        CreateCardsContainer();
 
         List<GameObject> shuffledCards = new List<GameObject>(cardsToUse);
         shuffledCards.Shuffle(); // Estensione usata prima
@@ -91,7 +104,7 @@ public class MemoryGameManager : MonoBehaviour
 
     void InstantiateCard(GameObject cardPrefab, Vector3 position, GameObject cardPosition)
     {
-        GameObject card = Instantiate(cardPrefab, position, Quaternion.identity, cardContainer);
+        GameObject card = Instantiate(cardPrefab, position, Quaternion.identity, cardsContainer.transform);
         card.GetComponent<MemoryCard>().Init(this);
         card.GetComponent<FollowCameraHeight>().currentRow = cardPosition;
         card.transform.localScale = new Vector3(1f, 1f, 1f); // Imposta la dimensione della carta
@@ -107,6 +120,12 @@ public class MemoryGameManager : MonoBehaviour
         }
         spawnedCards.Clear();
         selectedCards.Clear();
+
+        // Destroy the container (it will be recreated in StartNewRound)
+        if (cardsContainer != null)
+        {
+            Destroy(cardsContainer);
+        }
     }
 
     IEnumerator DestroyCardWithDelay(float delay, GameObject card)

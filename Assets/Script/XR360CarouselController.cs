@@ -13,6 +13,7 @@ using UnityEngine.Networking;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using System.Linq;
+using System.Threading.Tasks;
 
 
 public class XR360CarouselController : MonoBehaviour
@@ -80,6 +81,16 @@ public class XR360CarouselController : MonoBehaviour
     private List<HKCarouselElementData> cachedElements;
     private Dictionary<string, bool> fileExistsCache = new Dictionary<string, bool>();
     private const int BATCH_SIZE = 10; // Number of items to load per frame
+
+    private async Task<byte[]> LoadFileAsync(string path)
+    {
+        using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            byte[] data = new byte[fs.Length];
+            await fs.ReadAsync(data, 0, (int)fs.Length);
+            return data;
+        }
+    }
 
     private void CopyInitialRatingFile()
     {
@@ -238,6 +249,10 @@ public class XR360CarouselController : MonoBehaviour
     {
         if (carousel360 == null) return;
 
+        // Add debug logging for carousel state
+        Debug.Log($"[MEDIA] Carousel visible: {isCarouselVisible}");
+        Debug.Log($"[MEDIA] Last selected index: {lastSelectedIndex}");
+        
         // CASE 1: Carousel is hidden –> show it again and pause media
         if (!isCarouselVisible)
         {
@@ -246,9 +261,19 @@ public class XR360CarouselController : MonoBehaviour
         }
 
         // CASE 2: Carousel visible –> attempt to play the selected media
-        int index = carousel360.GetTrueSelectedIndex();
-        var elementData = carousel360.GetElementDataFromIndex(index) as HKCarouselElementData;
-        if (elementData == null) return;
+        int selectedIndex = carousel360.GetTrueSelectedIndex(); // Get the true index
+        Debug.Log($"[MEDIA] Selected Index: {selectedIndex}");
+        
+        // Get the element data and log its details
+        var elementData = carousel360.GetElementDataFromIndex(selectedIndex) as HKCarouselElementData;
+        if (elementData == null)
+        {
+            Debug.LogError("[MEDIA] Failed to get element data");
+            return;
+        }
+
+        Debug.Log($"[MEDIA] Selected Element - Name: {elementData.Name}, Category: {elementData.Category}, IsSceneLink: {elementData.IsSceneLink}");
+        Debug.Log($"[MEDIA] Selected media path: {elementData.VideoPath}");
 
         // Check if this is a scene link
         if (elementData.IsSceneLink && elementData.SceneIndex >= 0)
@@ -264,7 +289,7 @@ public class XR360CarouselController : MonoBehaviour
         // Always treat as new selection when carousel is visible
         if (isCarouselVisible)
         {
-            lastSelectedIndex = index;
+            lastSelectedIndex = selectedIndex;
             currentMediaPath = elementData.VideoPath;
 
             // Hide carousel UI
@@ -273,10 +298,12 @@ public class XR360CarouselController : MonoBehaviour
             // Display image or video depending on flag
             if (elementData.IsImage360)
             {
+                Debug.Log($"[MEDIA] Playing 360 Image at index {selectedIndex}: {elementData.Name}");
                 HandleImage360Media(elementData, false, true);
             }
             else
             {
+                Debug.Log($"[MEDIA] Playing Video at index {selectedIndex}: {elementData.Name}");
                 GameObject videoObj = GameObject.FindGameObjectWithTag("VideoPlayer");
                 if (videoObj != null)
                 {
@@ -664,6 +691,15 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
+        // Extract the correct filename for loading transform data
+        // We need to get the filename from the original path, not the converted path
+        string[] pathParts = imagePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+        string fileName = Path.GetFileNameWithoutExtension(pathParts[pathParts.Length - 1]);
+        Debug.Log($"[IMAGE] Loading transform data for: {fileName}");
+        
+        // Load transform data before starting the fade coroutine
+        LoadTransformData(fileName);
+
         StartCoroutine(FadeToBlackAndDisplayImage(fullPath));
     }
 
@@ -688,20 +724,16 @@ public class XR360CarouselController : MonoBehaviour
         yield return fadeSequence.WaitForCompletion();
         yield return new WaitForSeconds(blackScreenDuration);
 
-        // Load and process image outside try-catch
-        byte[] fileData;
-        try
+        // Start loading the file data
+        var loadTask = LoadFileAsync(fullPath);
+        while (!loadTask.IsCompleted)
         {
-            fileData = File.ReadAllBytes(fullPath);
+            yield return null;
         }
-        catch (Exception e)
-        {
-            Debug.LogError("[IMAGE] Error reading image file: " + e.Message);
-            yield break;
-        }
-
-        Debug.Log($"[IMAGE] Successfully read {fileData.Length} bytes from file");
-
+        
+        byte[] fileData = loadTask.Result;
+        
+        // Create and load texture
         Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         if (!texture.LoadImage(fileData))
         {
@@ -710,12 +742,8 @@ public class XR360CarouselController : MonoBehaviour
             yield break;
         }
 
-        Debug.Log($"[IMAGE] Successfully loaded image: {fullPath} (Size: {texture.width}x{texture.height})");
-
-        string fileName = Path.GetFileNameWithoutExtension(fullPath);
-        LoadTransformData(fileName);
-
         texture.wrapMode = TextureWrapMode.Clamp;
+        texture.Apply();
 
         // Clear any existing texture first
         Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
@@ -723,7 +751,6 @@ public class XR360CarouselController : MonoBehaviour
         {
             DestroyImmediate(currentTexture, true);
         }
-        sphereMaterial.SetTexture("_MainTex", null);
 
         // Set the new texture
         sphereMaterial.SetTexture("_MainTex", texture);
@@ -746,7 +773,7 @@ public class XR360CarouselController : MonoBehaviour
 
         yield return fadeSequence.WaitForCompletion();
 
-        // Start audio playback
+        // Start audio playback if any
         TryPlayAudio();
     }
 
@@ -754,20 +781,20 @@ public class XR360CarouselController : MonoBehaviour
     {
         try
         {
+            Debug.Log($"[PATH] Getting correct path for: {originalPath}");
+
             // Remove file:/// prefix if present
             if (originalPath.StartsWith("file:///"))
             {
                 originalPath = originalPath.Substring("file:///".Length);
             }
 
-            // Check cache first
-            if (fileExistsCache.TryGetValue(originalPath, out bool exists))
-            {
-                return exists ? originalPath : null;
-            }
-
             // Extract media type, category and filename
             string[] pathParts = originalPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            // Debug path parts
+            Debug.Log($"[PATH] Path parts: {string.Join(", ", pathParts)}");
+
             string mediaType = string.Empty;
             string category = string.Empty;
             string fileName = string.Empty;
@@ -788,20 +815,27 @@ public class XR360CarouselController : MonoBehaviour
                 }
             }
 
+            Debug.Log($"[PATH] Parsed - MediaType: {mediaType}, Category: {category}, FileName: {fileName}");
+
             if (string.IsNullOrEmpty(mediaType) || string.IsNullOrEmpty(category) || string.IsNullOrEmpty(fileName))
             {
+                Debug.LogError("[PATH] Failed to parse path components");
                 fileExistsCache[originalPath] = false;
                 return null;
             }
 
             string fullPath = Path.Combine(Application.persistentDataPath, mediaType, category, fileName);
-            bool fileExists = File.Exists(fullPath);
-            fileExistsCache[originalPath] = fileExists;
+            Debug.Log($"[PATH] Final path: {fullPath}");
             
+            bool fileExists = File.Exists(fullPath);
+            Debug.Log($"[PATH] File exists: {fileExists}");
+            
+            fileExistsCache[originalPath] = fileExists;
             return fileExists ? fullPath : null;
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            Debug.LogError($"[PATH] Error in GetCorrectPath: {e.Message}");
             fileExistsCache[originalPath] = false;
             return null;
         }
@@ -814,50 +848,70 @@ public class XR360CarouselController : MonoBehaviour
 
         if (audioSource == null)
         {
-            Debug.LogError("[AUDIO] AudioSource component is null! Please assign it in the inspector!");
+            Debug.LogError("[AUDIO] AudioSource component is null!");
             return;
         }
 
-        // Clean up the audio file name
-        string cleanFileName = audioFileName;
-        Debug.Log($"[AUDIO] Looking for audio file: '{cleanFileName}'");
+        // Try both underscore and space versions of the filename
+        string[] fileNameVariations = new[] {
+            audioFileName,                              // Original
+            audioFileName.Replace("_", " "),           // Replace underscores with spaces
+            audioFileName.Replace(" ", "_")            // Replace spaces with underscores
+        };
 
-        // Try to load the audio clip from Resources/Audio with different extensions
         AudioClip audioClip = null;
-        string[] extensions = new[] { "", ".wav", ".mp3" };
-        
-        foreach (var ext in extensions)
+        string successfulPath = null;
+
+        foreach (var fileName in fileNameVariations)
         {
-            string path = $"Audio/{cleanFileName}{ext}";
-            Debug.Log($"[AUDIO] Attempting to load from Resources path: '{path}'");
-            audioClip = Resources.Load<AudioClip>(path);
+            Debug.Log($"[AUDIO] Trying filename variation: '{fileName}'");
+            
+            // Try direct load
+            audioClip = Resources.Load<AudioClip>($"Audio/{fileName}");
             if (audioClip != null)
             {
-                Debug.Log($"[AUDIO] Successfully loaded audio from: '{path}'");
+                successfulPath = fileName;
+                Debug.Log($"[AUDIO] Found audio with exact name: '{fileName}'");
                 break;
             }
+
+            // Try with different extensions
+            string[] extensions = new[] { "", ".wav", ".mp3" };
+            foreach (var ext in extensions)
+            {
+                string path = $"Audio/{fileName}{ext}";
+                Debug.Log($"[AUDIO] Trying path: '{path}'");
+                audioClip = Resources.Load<AudioClip>(path);
+                if (audioClip != null)
+                {
+                    successfulPath = fileName;
+                    Debug.Log($"[AUDIO] Found audio at path: '{path}'");
+                    break;
+                }
+            }
+
+            if (audioClip != null) break;
         }
 
         if (audioClip == null)
         {
-            Debug.LogError($"[AUDIO] Failed to load audio clip for: '{cleanFileName}'. Make sure the file exists in Resources/Audio folder!");
+            Debug.LogError($"[AUDIO] Failed to load audio clip for any variation of: '{audioFileName}'");
             return;
         }
 
         // Stop any currently playing audio
         if (audioSource.isPlaying)
         {
-            Debug.Log("[AUDIO] Stopping current audio");
             audioSource.Stop();
         }
 
         // Set up the audio source
         audioSource.clip = audioClip;
-        currentAudioPath = $"Audio/{cleanFileName}";
+        currentAudioPath = $"Audio/{successfulPath}"; // Store the successful path
         isAudioPaused = false;
 
         Debug.Log($"[AUDIO] Setup complete - Clip: {audioClip.name}, Duration: {audioClip.length}s");
-        Debug.Log($"[AUDIO] AudioSource state - HasClip: {audioSource.clip != null}, Volume: {audioSource.volume}, Mute: {audioSource.mute}");
+        Debug.Log($"[AUDIO] Current audio path set to: {currentAudioPath}");
     }
 
     private void TryPlayAudio()
@@ -943,25 +997,31 @@ public class XR360CarouselController : MonoBehaviour
         Vector3 rotation = Vector3.zero;
         string audioFileName = null;
 
-        string[] lines = transformData.text.Split('\n');
+        string[] lines = transformData.text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         foreach (string line in lines)
         {
             string trimmed = line.Trim();
             Debug.Log($"[TRANSFORM] Processing line: '{trimmed}'");
 
-            if (trimmed.StartsWith("Position"))
+            if (trimmed.StartsWith("Position", StringComparison.OrdinalIgnoreCase))
             {
                 ParsePosition(line, ref position);
                 Debug.Log($"[TRANSFORM] Parsed position: {position}");
             }
-            else if (trimmed.StartsWith("Rotation"))
+            else if (trimmed.StartsWith("Rotation", StringComparison.OrdinalIgnoreCase))
             {
                 ParseRotation(line, ref rotation);
                 Debug.Log($"[TRANSFORM] Parsed rotation: {rotation}");
             }
-            else if (trimmed.StartsWith("Audio:"))
+            else if (trimmed.StartsWith("Audio:", StringComparison.OrdinalIgnoreCase))
             {
+                // Take everything after "Audio:" and trim it
                 audioFileName = trimmed.Substring("Audio:".Length).Trim();
+                // Remove any extension if present
+                if (audioFileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                {
+                    audioFileName = audioFileName.Substring(0, audioFileName.Length - 4);
+                }
                 Debug.Log($"[TRANSFORM] Found audio file name: '{audioFileName}'");
             }
         }
@@ -1184,43 +1244,7 @@ public class XR360CarouselController : MonoBehaviour
             ThumbnailPath = "Thumbnails/home"
         });
 
-        // Videos
-        string videosRoot = Path.Combine(Application.persistentDataPath, "Videos");
-        if (Directory.Exists(videosRoot))
-        {
-            var categoryDirs = Directory.GetDirectories(videosRoot);
-            int processedItems = 0;
-
-            foreach (var categoryDir in categoryDirs)
-            {
-                string category = Path.GetFileName(categoryDir);
-                var videoFiles = Directory.GetFiles(categoryDir, "*.mp4");
-
-                foreach (var videoFile in videoFiles)
-                {
-                    string fileName = Path.GetFileNameWithoutExtension(videoFile);
-                    string relativePath = Path.Combine("Videos", category, Path.GetFileName(videoFile));
-                    
-                    loadedElements.Add(new HKCarouselElementData
-                    {
-                        Name = fileName,
-                        Category = category,
-                        VideoPath = relativePath,
-                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
-                        IsImage360 = false
-                    });
-
-                    processedItems++;
-                    if (processedItems % BATCH_SIZE == 0)
-                    {
-                        ApplyElementsToCarousel(loadedElements);
-                        yield return null;
-                    }
-                }
-            }
-        }
-
-        // 360 Images
+        // 360 Images first (since that's what we see in the UI)
         string imagesRoot = Path.Combine(Application.persistentDataPath, "360 Images");
         if (Directory.Exists(imagesRoot))
         {
@@ -1230,11 +1254,14 @@ public class XR360CarouselController : MonoBehaviour
             foreach (var categoryDir in categoryDirs)
             {
                 string category = Path.GetFileName(categoryDir);
+                // Get files and sort them by name to ensure consistent order
                 var imageFiles = Directory.GetFiles(categoryDir, "*.*")
                     .Where(f => {
                         string ext = Path.GetExtension(f).ToLower();
                         return ext == ".jpg" || ext == ".png";
-                    });
+                    })
+                    .OrderBy(f => Path.GetFileNameWithoutExtension(f)) // Sort by filename
+                    .ToList();
 
                 foreach (var imageFile in imageFiles)
                 {
@@ -1253,23 +1280,51 @@ public class XR360CarouselController : MonoBehaviour
                     processedItems++;
                     if (processedItems % BATCH_SIZE == 0)
                     {
-                        ApplyElementsToCarousel(loadedElements);
                         yield return null;
                     }
                 }
             }
         }
 
-        // Sort elements by category and name, keeping Home first
-        loadedElements.Sort((a, b) => {
-            if (a.IsSceneLink) return -1;
-            if (b.IsSceneLink) return 1;
+        // Videos second
+        string videosRoot = Path.Combine(Application.persistentDataPath, "Videos");
+        if (Directory.Exists(videosRoot))
+        {
+            var categoryDirs = Directory.GetDirectories(videosRoot);
+            int processedItems = 0;
 
-            int catCompare = string.Compare(a.Category, b.Category, StringComparison.OrdinalIgnoreCase);
-            return catCompare != 0 ? catCompare : 
-                string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
-        });
+            foreach (var categoryDir in categoryDirs)
+            {
+                string category = Path.GetFileName(categoryDir);
+                // Get files and sort them by name to ensure consistent order
+                var videoFiles = Directory.GetFiles(categoryDir, "*.mp4")
+                    .OrderBy(f => Path.GetFileNameWithoutExtension(f)) // Sort by filename
+                    .ToList();
 
+                foreach (var videoFile in videoFiles)
+                {
+                    string fileName = Path.GetFileNameWithoutExtension(videoFile);
+                    string relativePath = Path.Combine("Videos", category, Path.GetFileName(videoFile));
+                    
+                    loadedElements.Add(new HKCarouselElementData
+                    {
+                        Name = fileName,
+                        Category = category,
+                        VideoPath = relativePath,
+                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
+                        IsImage360 = false
+                    });
+
+                    processedItems++;
+                    if (processedItems % BATCH_SIZE == 0)
+                    {
+                        yield return null;
+                    }
+                }
+            }
+        }
+
+        // Remove the final sorting that was messing up the order
         cachedElements = loadedElements;
         ApplyElementsToCarousel(loadedElements);
     }
