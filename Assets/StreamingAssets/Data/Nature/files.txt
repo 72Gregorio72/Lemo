@@ -1,6 +1,8 @@
 files.txt
 files.txt.meta
 files.txt.meta
+Home.txt
+Home.txt.meta
 il body scan luminoso.txt
 il body scan luminoso.txt.meta
 il corpo che accoglie.txt

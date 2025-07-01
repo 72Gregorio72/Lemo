@@ -1,5 +1,1 @@
 files.txt.meta
-Spiaggia.mp4
-Spiaggia.mp4.meta
-video20.mp4
-video20.mp4.meta

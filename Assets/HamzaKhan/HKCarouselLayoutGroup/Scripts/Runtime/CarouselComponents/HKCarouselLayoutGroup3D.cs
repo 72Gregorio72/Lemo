@@ -860,7 +860,7 @@ namespace HKCarouselLayoutGroup
                 Category = "Navigation",
                 IsSceneLink = true,
                 SceneIndex = 1,
-                ThumbnailPath = "Thumbnails/home"
+                ThumbnailPath = "Scene Thumbnails/Home thumbnail"
             });
 
             Debug.Log("[CAROUSEL] Added Home card");

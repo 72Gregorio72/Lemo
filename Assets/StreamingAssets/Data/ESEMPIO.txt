@@ -1,4 +1,0 @@
-Position 0 9 0
-Rotation 0 270 0 
-Audio: No
-Description: Immergiti in una meditazione immersiva e guidata

@@ -737,16 +737,21 @@ MonoBehaviour:
   sceneElements:
   - sceneName: Home
     sceneIndex: 1
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Home thumbnail
     description: "Si torna sempre dove si \xE8 stati bene"
   - sceneName: Continua
     sceneIndex: 3
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Paint Thumbnails
     description: rimani dove sei e continua a metterti alla prova
   - sceneName: Memory
     sceneIndex: 4
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Memory Thumbnail
     description: metti alla prova la tua memoria!
+  - sceneName: Meditazioni
+    sceneIndex: 2
+    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
+    description: Scopri un percorso guidato nella meditazione tra video, immagini
+      ed audio immersivi
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
@@ -3170,7 +3175,7 @@ GameObject:
   - component: {fileID: 521363729}
   - component: {fileID: 521363728}
   m_Layer: 5
-  m_Name: Canvas (1)
+  m_Name: Carosello Canva
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

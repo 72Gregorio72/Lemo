@@ -1960,7 +1960,7 @@ MonoBehaviour:
     spacing: 200
     zOffset: 7.5
     yOffset: 0
-  _defaultSelectedIndex: 2
+  _defaultSelectedIndex: 1
   _scroll: 6
   _rotationY: 13.26
   _scaleFactor: 0.7
@@ -1974,7 +1974,7 @@ MonoBehaviour:
       ed audio immersivi
   - sceneName: Paint
     sceneIndex: 3
-    thumbnailPath: 
+    thumbnailPath: Scene Thumbnails/Paint Thumbnails
     description: Divertiti dipingendo
   - sceneName: Memory
     sceneIndex: 4

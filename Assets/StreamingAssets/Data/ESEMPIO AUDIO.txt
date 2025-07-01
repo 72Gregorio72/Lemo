@@ -1,3 +1,0 @@
-Position 6.2 4 19.7
-Rotation 6.2 -166.123 -0.536 
-Audio: lettera introduttiva, un messaggio per te.wav

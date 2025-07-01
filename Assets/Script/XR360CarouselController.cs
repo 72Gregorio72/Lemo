@@ -252,7 +252,7 @@ public class XR360CarouselController : MonoBehaviour
         // Add debug logging for carousel state
         Debug.Log($"[MEDIA] Carousel visible: {isCarouselVisible}");
         Debug.Log($"[MEDIA] Last selected index: {lastSelectedIndex}");
-        
+
         // CASE 1: Carousel is hidden –> show it again and pause media
         if (!isCarouselVisible)
         {
@@ -691,49 +691,80 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        // Extract the correct filename for loading transform data
-        // We need to get the filename from the original path, not the converted path
-        string[] pathParts = imagePath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-        string fileName = Path.GetFileNameWithoutExtension(pathParts[pathParts.Length - 1]);
-        Debug.Log($"[IMAGE] Loading transform data for: {fileName}");
+        // Extract category from the original path
+        string category = ExtractCategoryFromPath(imagePath);
+        string fileName = Path.GetFileNameWithoutExtension(imagePath);
         
-        // Load transform data before starting the fade coroutine
-        LoadTransformData(fileName);
-
-        StartCoroutine(FadeToBlackAndDisplayImage(fullPath));
+        // Start the fade and display coroutine, passing transform data
+        StartCoroutine(FadeToBlackAndDisplayImage(fullPath, fileName, category));
     }
 
-    private IEnumerator FadeToBlackAndDisplayImage(string fullPath)
+    private string ExtractCategoryFromPath(string path)
     {
-        // Fade to black using both material and post-processing
-        var fadeSequence = DOTween.Sequence();
+        try
+        {
+            // Extract category from path like "360 Images/Nature/filename.png"
+            string[] pathParts = path.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            for (int i = 0; i < pathParts.Length - 1; i++)
+            {
+                if (pathParts[i].Equals("360 Images", StringComparison.OrdinalIgnoreCase) || 
+                    pathParts[i].Equals("Videos", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i + 1 < pathParts.Length)
+                    {
+                        string category = pathParts[i + 1];
+                        Debug.Log($"[CATEGORY] Extracted category: {category} from path: {path}");
+                        return category;
+                    }
+                }
+            }
+            
+            Debug.LogWarning($"[CATEGORY] Could not extract category from path: {path}");
+            return null;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[CATEGORY] Error extracting category: {e.Message}");
+            return null;
+        }
+    }
+
+    private IEnumerator FadeToBlackAndDisplayImage(string fullPath, string fileName = null, string category = null)
+    {
+        Debug.Log("[IMAGE] Starting fade to black and load sequence");
+
+        // STEP 1: Fade to black (wait for completion)
+        var fadeDownSequence = DOTween.Sequence();
         
-        // Material fade
-        fadeSequence.Join(sphereMaterial.DOFloat(0f, "_Visibility", fadeOutDuration)
+        // Material fade down
+        fadeDownSequence.Join(sphereMaterial.DOFloat(0f, "_Visibility", fadeOutDuration)
             .SetEase(Ease.InOutSine));
             
-        // Post-processing fade (if available)
+        // Post-processing fade down (if available)
         if (colorAdjustments != null)
         {
-            fadeSequence.Join(DOTween.To(() => colorAdjustments.postExposure.value,
+            fadeDownSequence.Join(DOTween.To(() => colorAdjustments.postExposure.value,
                 x => colorAdjustments.postExposure.value = x,
                 -10f, fadeOutDuration)
                 .SetEase(Ease.InOutSine));
         }
 
-        yield return fadeSequence.WaitForCompletion();
-        yield return new WaitForSeconds(blackScreenDuration);
+        yield return fadeDownSequence.WaitForCompletion();
+        Debug.Log("[IMAGE] Fade to black completed, now loading everything...");
 
-        // Start loading the file data
+        // STEP 2: Load image data
+        Debug.Log("[IMAGE] Loading image file...");
         var loadTask = LoadFileAsync(fullPath);
         while (!loadTask.IsCompleted)
         {
             yield return null;
         }
-        
+
         byte[] fileData = loadTask.Result;
+        Debug.Log("[IMAGE] Image file loaded, creating texture...");
         
-        // Create and load texture
+        // STEP 3: Create and load texture
         Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         if (!texture.LoadImage(fileData))
         {
@@ -744,38 +775,104 @@ public class XR360CarouselController : MonoBehaviour
 
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.Apply();
+        Debug.Log("[IMAGE] Texture created and applied");
 
-        // Clear any existing texture first
+        // STEP 4: Clear old texture and set new one
         Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
         if (currentTexture != null && currentTexture != blackTexture && currentTexture != videoRenderTexture)
         {
             DestroyImmediate(currentTexture, true);
         }
 
-        // Set the new texture
-        sphereMaterial.SetTexture("_MainTex", texture);
-
-        // Fade back in
-        fadeSequence = DOTween.Sequence();
-        
-        // Material fade
-        fadeSequence.Join(sphereMaterial.DOFloat(1f, "_Visibility", fadeInDuration)
-            .SetEase(Ease.InOutSine));
-            
-        // Post-processing fade (if available)
-        if (colorAdjustments != null)
+        // STEP 5: Load and apply transform data BEFORE setting texture
+        if (!string.IsNullOrEmpty(fileName))
         {
-            fadeSequence.Join(DOTween.To(() => colorAdjustments.postExposure.value,
-                x => colorAdjustments.postExposure.value = x,
-                0f, fadeInDuration)
-                .SetEase(Ease.InOutSine));
+            Debug.Log("[IMAGE] Loading transform data...");
+            LoadTransformData(fileName, category);
+            Debug.Log("[IMAGE] Transform data applied");
+            // Give a frame for transform to settle
+            yield return null;
         }
 
-        yield return fadeSequence.WaitForCompletion();
+        sphereMaterial.SetTexture("_MainTex", texture);
+        Debug.Log("[IMAGE] New texture set on material with correct transforms");
 
-        // Start audio playback if any
-        TryPlayAudio();
+        // STEP 6: Start audio loading and wait for it to ACTUALLY be ready
+        Debug.Log("[IMAGE] Starting audio loading while still invisible...");
+        StartCoroutine(LoadAudioAndThenFadeIn());
     }
+
+    private IEnumerator LoadAudioAndThenFadeIn()
+    {
+        Debug.Log("[AUDIO_LOAD] Starting audio loading process...");
+        
+        // Start audio loading
+        if (!string.IsNullOrEmpty(currentAudioPath))
+        {
+            Debug.Log("[AUDIO_LOAD] Audio path exists, starting TryPlayAudio...");
+            
+            // Call TryPlayAudio which will load and start the audio
+            TryPlayAudio();
+            
+            // Wait until audio is actually playing or confirmed loaded
+            float timeout = 5f; // Maximum wait time
+            float elapsed = 0f;
+            
+            while (elapsed < timeout)
+            {
+                if (audioSource != null && audioSource.isPlaying)
+                {
+                    Debug.Log("[AUDIO_LOAD] Audio is now playing! Ready to fade in.");
+                    break;
+                }
+                
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            
+            if (elapsed >= timeout)
+            {
+                Debug.LogWarning("[AUDIO_LOAD] Audio loading timed out, proceeding with fade in anyway");
+            }
+        }
+        else
+        {
+            Debug.Log("[AUDIO_LOAD] No audio path set, proceeding directly to fade in");
+        }
+        
+        // Give one frame for everything to settle
+        yield return null;
+        
+        Debug.Log("[AUDIO_LOAD] EVERYTHING is now loaded and ready! Calling fade in...");
+        
+                 // NOW call the fade in function
+         StartCoroutine(FadeInVisibility());
+     }
+
+     private IEnumerator FadeInVisibility()
+     {
+         Debug.Log("[FADE_IN] Starting fade in - everything is loaded and ready!");
+         
+         // Fade back in (wait for completion)
+         var fadeUpSequence = DOTween.Sequence();
+         
+         // Material fade up
+         fadeUpSequence.Join(sphereMaterial.DOFloat(1f, "_Visibility", fadeInDuration)
+             .SetEase(Ease.InOutSine));
+             
+         // Post-processing fade up (if available)
+         if (colorAdjustments != null)
+         {
+             fadeUpSequence.Join(DOTween.To(() => colorAdjustments.postExposure.value,
+                 x => colorAdjustments.postExposure.value = x,
+                 0f, fadeInDuration)
+                 .SetEase(Ease.InOutSine));
+         }
+
+         yield return fadeUpSequence.WaitForCompletion();
+         Debug.Log("[FADE_IN] Fade in completed! Audio and visuals are both active!");
+         Debug.Log("[FADE_IN] Complete sequence finished - user can see and hear everything!");
+     }
 
     private string GetCorrectPath(string originalPath)
     {
@@ -841,6 +938,28 @@ public class XR360CarouselController : MonoBehaviour
         }
     }
 
+    // Helper function specifically for Data and Audio files
+    private string GetDataOrAudioPath(string relativePath)
+    {
+        try
+        {
+            Debug.Log($"[DATA/AUDIO PATH] Getting path for: {relativePath}");
+            
+            string fullPath = Path.Combine(Application.persistentDataPath, relativePath);
+            Debug.Log($"[DATA/AUDIO PATH] Full path: {fullPath}");
+            
+            bool fileExists = File.Exists(fullPath);
+            Debug.Log($"[DATA/AUDIO PATH] File exists: {fileExists}");
+            
+            return fileExists ? fullPath : null;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[DATA/AUDIO PATH] Error getting path: {e.Message}");
+            return null;
+        }
+    }
+
     // Audio Methods
     private void HandleAudioPlayback(string audioFileName)
     {
@@ -876,7 +995,7 @@ public class XR360CarouselController : MonoBehaviour
             }
 
             // Try with different extensions
-            string[] extensions = new[] { "", ".wav", ".mp3" };
+            string[] extensions = new[] { ".wav", ".mp3" };
             foreach (var ext in extensions)
             {
                 string path = $"Audio/{fileName}{ext}";
@@ -930,44 +1049,76 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[AUDIO] Current state - HasClip: {audioSource.clip != null}, IsPlaying: {audioSource.isPlaying}, Path: {currentAudioPath}");
-
-        if (audioSource.clip == null)
+        // Try both .wav and .mp3 extensions
+        string[] extensions = new[] { ".wav", ".mp3" };
+        foreach (string ext in extensions)
         {
-            Debug.Log($"[AUDIO] Loading clip from path: {currentAudioPath}");
-            AudioClip audioClip = Resources.Load<AudioClip>(currentAudioPath);
-            if (audioClip == null)
+            string fullPath = (currentAudioPath + ext).Replace('\\', '/');
+            Debug.Log($"[AUDIO] Checking for audio at: {fullPath}");
+            
+            if (File.Exists(fullPath))
             {
-                // Try with extensions if direct path fails
-                string[] extensions = new[] { ".wav", ".mp3" };
-                foreach (var ext in extensions)
-                {
-                    string fullPath = $"{currentAudioPath}{ext}";
-                    Debug.Log($"[AUDIO] Trying path with extension: {fullPath}");
-                    audioClip = Resources.Load<AudioClip>(fullPath);
-                    if (audioClip != null)
-                    {
-                        Debug.Log($"[AUDIO] Found audio with extension: {ext}");
-                        break;
-                    }
-                }
+                Debug.Log($"[AUDIO] Found audio file at: {fullPath}");
+                StartCoroutine(PlayAudioFromPath(fullPath, ext == ".mp3" ? AudioType.MPEG : AudioType.WAV));
+                return;
+            }
+        }
 
-                if (audioClip == null)
+        // If not found in category folder, try root Audio folder as fallback
+        string audioFileName = Path.GetFileName(currentAudioPath);
+        string rootAudioRelativePath = Path.Combine("Audio", audioFileName);
+        string rootAudioPath = GetCorrectPath(rootAudioRelativePath);
+        
+        if (!string.IsNullOrEmpty(rootAudioPath))
+        {
+            foreach (string ext in extensions)
+            {
+                string fullPath = rootAudioPath + ext;
+                Debug.Log($"[AUDIO] Checking fallback path: {fullPath}");
+                
+                if (File.Exists(fullPath))
                 {
-                    Debug.LogError($"[AUDIO] Failed to load audio clip from: {currentAudioPath}");
+                    Debug.Log($"[AUDIO] Found audio file at fallback path: {fullPath}");
+                    StartCoroutine(PlayAudioFromPath(fullPath, ext == ".mp3" ? AudioType.MPEG : AudioType.WAV));
                     return;
                 }
             }
-            audioSource.clip = audioClip;
         }
 
-        Debug.Log($"[AUDIO] About to play - Clip: {audioSource.clip.name}, Volume: {audioSource.volume}, Mute: {audioSource.mute}");
-        audioSource.Play();
-        Debug.Log($"[AUDIO] Started playing: {currentAudioPath}, IsPlaying: {audioSource.isPlaying}");
+        Debug.LogError($"[AUDIO] No audio file found with either .wav or .mp3 extension at: {currentAudioPath} or fallback location");
+    }
+
+    private IEnumerator PlayAudioFromPath(string audioPath, AudioType audioType)
+    {
+        Debug.Log($"[AUDIO] Loading audio from: {audioPath} as {audioType}");
+
+        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + audioPath, audioType))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                AudioClip clip = DownloadHandlerAudioClip.GetContent(www);
+                if (clip != null)
+                {
+                    audioSource.clip = clip;
+                    audioSource.Play();
+                    Debug.Log("[AUDIO] Successfully started playing audio");
+                }
+                else
+                {
+                    Debug.LogError("[AUDIO] Downloaded clip is null");
+                }
+            }
+            else
+            {
+                Debug.LogError($"[AUDIO] Error loading audio: {www.error}");
+            }
+        }
     }
 
     // Transform Data Methods
-    private void LoadTransformData(string fileName)
+    private void LoadTransformData(string fileName, string category = null)
     {
         if (string.IsNullOrEmpty(fileName))
         {
@@ -975,82 +1126,92 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[TRANSFORM] Looking for data file: {fileName}");
+        Debug.Log($"[TRANSFORM] Looking for data file: {fileName} in category: {category}");
 
-        // Load transform data from Resources/Data folder
-        TextAsset transformData = Resources.Load<TextAsset>($"Data/{fileName}");
-        if (transformData == null)
+        // Use helper function for Data files
+        string dataPath;
+        if (!string.IsNullOrEmpty(category))
         {
-            // Try with .txt extension if not found
-            transformData = Resources.Load<TextAsset>($"Data/{fileName}.txt");
-            if (transformData == null)
+            string relativePath = Path.Combine("Data", category, fileName + ".txt");
+            dataPath = GetDataOrAudioPath(relativePath);
+        }
+        else
+        {
+            string relativePath = Path.Combine("Data", fileName + ".txt");
+            dataPath = GetDataOrAudioPath(relativePath);
+        }
+
+        if (string.IsNullOrEmpty(dataPath) || !File.Exists(dataPath))
+        {
+            // Try fallback to root Data folder if category didn't work
+            if (!string.IsNullOrEmpty(category))
             {
-                Debug.LogError($"[TRANSFORM] No data file found in Resources/Data for: {fileName}");
+                string fallbackRelativePath = Path.Combine("Data", fileName + ".txt");
+                string fallbackPath = GetCorrectPath(fallbackRelativePath);
+                if (!string.IsNullOrEmpty(fallbackPath) && File.Exists(fallbackPath))
+                {
+                    dataPath = fallbackPath;
+                    Debug.Log($"[TRANSFORM] Found data file in root folder: {dataPath}");
+                }
+                else
+                {
+                    Debug.LogError($"[TRANSFORM] Data file not found at: {dataPath} or {fallbackPath}");
+                    return;
+                }
+            }
+            else
+            {
+                Debug.LogError($"[TRANSFORM] Data file not found at: {dataPath}");
                 return;
             }
         }
 
-        Debug.Log($"[TRANSFORM] Successfully loaded data file for: {fileName}");
-        Debug.Log($"[TRANSFORM] File contents:\n{transformData.text}");
-
-        Vector3 position = Vector3.zero;
-        Vector3 rotation = Vector3.zero;
-        string audioFileName = null;
-
-        string[] lines = transformData.text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-        foreach (string line in lines)
+        try
         {
-            string trimmed = line.Trim();
-            Debug.Log($"[TRANSFORM] Processing line: '{trimmed}'");
+            string[] lines = File.ReadAllLines(dataPath);
+            Vector3 position = Vector3.zero;
+            Vector3 rotation = Vector3.zero;
 
-            if (trimmed.StartsWith("Position", StringComparison.OrdinalIgnoreCase))
+            foreach (string line in lines)
             {
-                ParsePosition(line, ref position);
-                Debug.Log($"[TRANSFORM] Parsed position: {position}");
-            }
-            else if (trimmed.StartsWith("Rotation", StringComparison.OrdinalIgnoreCase))
-            {
-                ParseRotation(line, ref rotation);
-                Debug.Log($"[TRANSFORM] Parsed rotation: {rotation}");
-            }
-            else if (trimmed.StartsWith("Audio:", StringComparison.OrdinalIgnoreCase))
-            {
-                // Take everything after "Audio:" and trim it
-                audioFileName = trimmed.Substring("Audio:".Length).Trim();
-                // Remove any extension if present
-                if (audioFileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                string trimmedLine = line.Trim();
+                if (trimmedLine.StartsWith("Audio:"))
                 {
-                    audioFileName = audioFileName.Substring(0, audioFileName.Length - 4);
+                    string audioFileName = trimmedLine.Substring("Audio:".Length).Trim();
+                    audioFileName = Path.GetFileNameWithoutExtension(audioFileName);
+                    
+                    // Store audio path base (without extension) for later extension checking
+                    if (!string.IsNullOrEmpty(category))
+                    {
+                        currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", category, audioFileName);
+                    }
+                    else
+                    {
+                        currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", audioFileName);
+                    }
+                    
+                    Debug.Log($"[TRANSFORM] Set base audio path to: {currentAudioPath}");
                 }
-                Debug.Log($"[TRANSFORM] Found audio file name: '{audioFileName}'");
+                else if (trimmedLine.StartsWith("Position"))
+                {
+                    ParsePosition(trimmedLine, ref position);
+                }
+                else if (trimmedLine.StartsWith("Rotation"))
+                {
+                    ParseRotation(trimmedLine, ref rotation);
+                }
             }
-        }
 
-        // Apply transform data
-        if (videoSphere != null)
-        {
-            videoSphere.localPosition = position;
-            videoSphere.localEulerAngles = rotation;
-            Debug.Log($"[TRANSFORM] Applied transform - Position: {position}, Rotation: {rotation}");
-        }
-
-        // Handle audio if specified
-        if (!string.IsNullOrEmpty(audioFileName))
-        {
-            Debug.Log($"[TRANSFORM] Calling HandleAudioPlayback with: '{audioFileName}'");
-            HandleAudioPlayback(audioFileName);
-        }
-        else
-        {
-            // Clear audio state if no audio specified
-            if (audioSource != null)
+            // Apply transform data
+            if (videoSphere != null)
             {
-                audioSource.Stop();
-                audioSource.clip = null;
-                currentAudioPath = null;
-                isAudioPaused = false;
-                Debug.Log("[TRANSFORM] No audio specified, cleared audio state");
+                videoSphere.position = position;
+                videoSphere.rotation = Quaternion.Euler(rotation);
             }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[TRANSFORM] Error reading transform data: {e.Message}");
         }
     }
 
@@ -1241,7 +1402,7 @@ public class XR360CarouselController : MonoBehaviour
             Category = "Navigation",
             IsSceneLink = true,
             SceneIndex = 1,
-            ThumbnailPath = "Thumbnails/home"
+            ThumbnailPath = "Scene Thumbnails/Home thumbnail"
         });
 
         // 360 Images first (since that's what we see in the UI)
