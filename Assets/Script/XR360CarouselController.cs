@@ -15,7 +15,22 @@ using UnityEngine.Rendering.Universal;
 using System.Linq;
 using System.Threading.Tasks;
 
-
+/// <summary>
+/// 🎯 OPTIMIZED ON-DEMAND MEDIA LOADING SYSTEM
+/// 
+/// How it works:
+/// 1. 📄 Load only .txt metadata files into carousel (super fast!)
+/// 2. 🎮 When trigger pressed, check metadata Type field
+/// 3. 🎬 If Type="video" → search Videos/{category}/{name}.mp4
+/// 4. 🖼️ If Type="image" → search 360 Images/{category}/{name}.png  
+/// 5. 🚀 Load only the specific file needed RIGHT NOW!
+/// 
+/// Benefits:
+/// ✅ Fast startup (no media pre-loading)
+/// ✅ Low memory usage 
+/// ✅ Scalable to hundreds of experiences
+/// ✅ Dynamic content discovery
+/// </summary>
 public class XR360CarouselController : MonoBehaviour
 {
     [Header("Carousel Control")]
@@ -127,29 +142,47 @@ public class XR360CarouselController : MonoBehaviour
     public void Initialize(HKCarouselLayoutGroup3DDemo carouselComponent)
     {
         carousel360 = carouselComponent;
+        Debug.Log("[XR360CarouselController] Initialize() called");
+
+        if (!isSetup)
+        {
+            InitializeDevices();
         isSetup = true;
+        }
+
+        Debug.Log("[XR360CarouselController] Starting asset loading...");
         
-        // Initialize other components
+        // Load metadata directly since files are manually added via PC
+        Debug.Log("[XR360CarouselController] Files are manually added via PC, skipping copy operation");
+        Debug.Log("[XR360CarouselController] Expected file structure:");
+        Debug.Log($"[XR360CarouselController] - Images: {Path.Combine(Application.persistentDataPath, "360 Images", "Category", "ElementName.png/.jpg")}");
+        Debug.Log($"[XR360CarouselController] - Videos: {Path.Combine(Application.persistentDataPath, "Videos", "Category", "ElementName.mp4")}");
+        Debug.Log($"[XR360CarouselController] - Metadata: {Path.Combine(Application.persistentDataPath, "Data", "Category", "ElementName.txt")}");
+        
+        LoadAssetsFromPersistentDataPath();
+
+        Debug.Log("[XR360CarouselController] Initialize() completed");
+    }
+
+    private void InitializeDevices()
+    {
+        // Initialize input devices
         InputDevices.GetDevices(devices);
         
+        // Initialize black texture
         blackTexture = new Texture2D(1, 1);
         blackTexture.SetPixel(0, 0, Color.black);
         blackTexture.Apply();
 
+        // Initialize sphere material
         if (sphereMaterial != null)
         {
             // Always keep the videoRenderTexture assigned to the material
             sphereMaterial.SetTexture("_MainTex", videoRenderTexture);
         }
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-        StartCoroutine(CopyAndroidStreamingAssets());
-#endif
-
+        // Initialize rating system
         InitializeRatingSystem();
-        
-        // Load all assets into the carousel
-        LoadAssetsFromPersistentDataPath();
     }
 
     private void Start()
@@ -273,7 +306,7 @@ public class XR360CarouselController : MonoBehaviour
         }
 
         Debug.Log($"[MEDIA] Selected Element - Name: {elementData.Name}, Category: {elementData.Category}, IsSceneLink: {elementData.IsSceneLink}");
-        Debug.Log($"[MEDIA] Selected media path: {elementData.VideoPath}");
+        Debug.Log($"[MEDIA] Using ON-DEMAND loading - no pre-loaded media path");
 
         // Check if this is a scene link
         if (elementData.IsSceneLink && elementData.SceneIndex >= 0)
@@ -283,36 +316,26 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        // Handle regular media
-        if (string.IsNullOrEmpty(elementData.VideoPath)) return;
-
+        // Handle regular media with ON-DEMAND loading (no pre-loaded VideoPath needed)
         // Always treat as new selection when carousel is visible
         if (isCarouselVisible)
         {
             lastSelectedIndex = selectedIndex;
-            currentMediaPath = elementData.VideoPath;
+            // NOTE: currentMediaPath will be resolved on-demand in Handle methods
 
             // Hide carousel UI
             HideCarousel();
 
-            // Display image or video depending on flag
+            // 🎯 ON-DEMAND LOADING: Check metadata type and load only what's needed!
             if (elementData.IsImage360)
             {
-                Debug.Log($"[MEDIA] Playing 360 Image at index {selectedIndex}: {elementData.Name}");
+                Debug.Log($"[TRIGGER] 🖼️ Metadata says IMAGE - will search 360 Images/{elementData.Category}/{elementData.Name}");
                 HandleImage360Media(elementData, false, true);
             }
             else
             {
-                Debug.Log($"[MEDIA] Playing Video at index {selectedIndex}: {elementData.Name}");
-                GameObject videoObj = GameObject.FindGameObjectWithTag("VideoPlayer");
-                if (videoObj != null)
-                {
-                    var vp = videoObj.GetComponent<VideoPlayer>();
-                    if (vp != null)
-                    {
-                        PlayVideo(elementData.VideoPath, vp);
-                    }
-                }
+                Debug.Log($"[TRIGGER] 🎬 Metadata says VIDEO - will search Videos/{elementData.Category}/{elementData.Name}");
+                HandleVideoMedia(elementData, false, true);
             }
             return;
         }
@@ -396,12 +419,30 @@ public class XR360CarouselController : MonoBehaviour
 
         if (!isSameMedia)
         {
-            currentMediaPath = data.VideoPath;
+            // 🎯 ON-DEMAND IMAGE LOADING: Find the image file NOW (not pre-loaded!)
+            Debug.Log($"[ON-DEMAND IMAGE] Loading '{data.Name}' from category '{data.Category}'");
+            string resolvedMediaPath = ResolveMediaPath(data.Name, data.Category, true);
+            if (string.IsNullOrEmpty(resolvedMediaPath))
+            {
+                Debug.LogError($"[ON-DEMAND IMAGE] ❌ Could not resolve image path for {data.Name} in category {data.Category}");
+                return;
+            }
+            
+            Debug.Log($"[ON-DEMAND IMAGE] ✅ Found image: {resolvedMediaPath}");
+            currentMediaPath = resolvedMediaPath;
             triggerPressCount = 1;
             isAudioPaused = false;
 
+            // Get audio path from metadata  
+            string audioPath = GetAudioPathFromMetadata(data.Name, data.Category);
+            if (!string.IsNullOrEmpty(audioPath))
+            {
+                Debug.Log($"[ON-DEMAND AUDIO] Setting up audio for image: {audioPath}");
+                HandleAudioPlayback(audioPath);
+            }
+
             FadeOutCanvas();
-            DisplayImageOnSphere(data.VideoPath);
+            DisplayImageOnSphere(resolvedMediaPath);
             return;
         }
 
@@ -445,13 +486,31 @@ public class XR360CarouselController : MonoBehaviour
 
         if (!isSameMedia)
         {
-            currentMediaPath = data.VideoPath;
+            // 🎯 ON-DEMAND VIDEO LOADING: Find the video file NOW (not pre-loaded!)
+            Debug.Log($"[ON-DEMAND VIDEO] Loading '{data.Name}' from category '{data.Category}'");
+            string resolvedMediaPath = ResolveMediaPath(data.Name, data.Category, false);
+            if (string.IsNullOrEmpty(resolvedMediaPath))
+            {
+                Debug.LogError($"[ON-DEMAND VIDEO] ❌ Could not resolve video path for {data.Name} in category {data.Category}");
+                return;
+            }
+            
+            Debug.Log($"[ON-DEMAND VIDEO] ✅ Found video: {resolvedMediaPath}");
+            currentMediaPath = resolvedMediaPath;
             triggerPressCount = 1;
             isVideoPaused = false;
             isAudioPaused = false;
 
+            // Get audio path from metadata
+            string audioPath = GetAudioPathFromMetadata(data.Name, data.Category);
+            if (!string.IsNullOrEmpty(audioPath))
+            {
+                Debug.Log($"[ON-DEMAND AUDIO] Setting up audio for video: {audioPath}");
+                HandleAudioPlayback(audioPath);
+            }
+
             FadeOutCanvas();
-            PlayVideo(data.VideoPath, vp);
+            PlayVideo(resolvedMediaPath, vp);
             return;
         }
 
@@ -581,10 +640,10 @@ public class XR360CarouselController : MonoBehaviour
     // Media Playback Methods
     private void PlayVideo(string videoPath, VideoPlayer videoPlayer)
     {
-        Debug.Log($"[VIDEO] Original path: {videoPath}");
+        Debug.Log($"[VIDEO] Playing video from full path: {videoPath}");
         
-        string fullPath = GetCorrectPath(videoPath);
-        Debug.Log($"[VIDEO] Using path: {fullPath}");
+        // videoPath is now a full path from ResolveMediaPath, no conversion needed
+        string fullPath = videoPath;
         
         videoPlayer.enabled = true;
         string fileName = Path.GetFileNameWithoutExtension(videoPath);
@@ -596,7 +655,7 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        // Configure VideoPlayer for best quality
+        // Configure VideoPlayer using the original working approach - MaterialOverride
         videoPlayer.playOnAwake = false;
         videoPlayer.isLooping = true;
         videoPlayer.renderMode = VideoRenderMode.MaterialOverride;
@@ -605,6 +664,8 @@ public class XR360CarouselController : MonoBehaviour
         videoPlayer.aspectRatio = VideoAspectRatio.FitVertically;
         videoPlayer.audioOutputMode = VideoAudioOutputMode.AudioSource;
         videoPlayer.SetTargetAudioSource(0, audioSource);
+        
+        Debug.Log($"[VIDEO] Configured using MaterialOverride to render directly to videoSphere");
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         // On Android, we need the file:// protocol
@@ -638,6 +699,16 @@ public class XR360CarouselController : MonoBehaviour
 
         yield return fadeSequence.WaitForCompletion();
         yield return new WaitForSeconds(blackScreenDuration);
+
+        // Clear any old image texture before video playback (video will override the material directly)
+        Texture currentTexture = sphereMaterial.GetTexture("_MainTex");
+        if (currentTexture != null && currentTexture != blackTexture && currentTexture != videoRenderTexture)
+        {
+            Debug.Log("[VIDEO] Clearing old image texture before video playback");
+            DestroyImmediate(currentTexture, true);
+        }
+        
+        Debug.Log("[VIDEO] Video player will override material directly using MaterialOverride mode");
 
         // Prepare video player
         videoPlayer.Prepare();
@@ -1380,19 +1451,37 @@ public class XR360CarouselController : MonoBehaviour
         yield return StartCoroutine(HideProgressAfterDelay(2f));
     }
 
+    private IEnumerator CopyAndroidStreamingAssetsAndThenLoad()
+    {
+        Debug.Log("[CAROUSEL] Starting copy operation before loading assets...");
+        
+        // First, copy all the streaming assets
+        yield return StartCoroutine(CopyAndroidStreamingAssets());
+        
+        Debug.Log("[CAROUSEL] Copy operation completed, now loading assets...");
+        
+        // Then load the assets from the copied files
+        LoadAssetsFromPersistentDataPath();
+    }
+
     void LoadAssetsFromPersistentDataPath()
     {
+        Debug.Log($"[CAROUSEL] LoadAssetsFromPersistentDataPath called, cachedElements = {(cachedElements == null ? "null" : cachedElements.Count.ToString())}");
+        
         if (cachedElements != null)
         {
+            Debug.Log($"[CAROUSEL] Using cached elements: {cachedElements.Count}");
             ApplyElementsToCarousel(cachedElements);
             return;
         }
 
+        Debug.Log("[CAROUSEL] Starting LoadAssetsAsync coroutine...");
         StartCoroutine(LoadAssetsAsync());
     }
 
     private IEnumerator LoadAssetsAsync()
     {
+        Debug.Log("[CAROUSEL] LoadAssetsAsync coroutine STARTED");
         var loadedElements = new List<HKCarouselElementData>();
 
         // Add Home card at the beginning
@@ -1404,95 +1493,373 @@ public class XR360CarouselController : MonoBehaviour
             SceneIndex = 1,
             ThumbnailPath = "Scene Thumbnails/Home thumbnail"
         });
+        Debug.Log("[CAROUSEL] Added Home card");
 
-        // 360 Images first (since that's what we see in the UI)
-        string imagesRoot = Path.Combine(Application.persistentDataPath, "360 Images");
-        if (Directory.Exists(imagesRoot))
+        // Force a yield to ensure coroutine continues
+        yield return null;
+        
+        Debug.Log("[CAROUSEL] Continuing after Home card, about to start metadata loading...");
+
+        // NEW: Load from metadata files in Data/<Category>/ folders instead of scanning media folders
+        string dataRoot = null;
+        try
         {
-            var categoryDirs = Directory.GetDirectories(imagesRoot);
+            dataRoot = Path.Combine(Application.persistentDataPath, "Data");
+            Debug.Log($"[METADATA] Loading assets from metadata files in: {dataRoot}");
+            Debug.Log($"[METADATA] Application.persistentDataPath = {Application.persistentDataPath}");
+            
+            // Log what's actually in the persistentDataPath
+            if (Directory.Exists(Application.persistentDataPath))
+            {
+                var allDirs = Directory.GetDirectories(Application.persistentDataPath);
+                var allFiles = Directory.GetFiles(Application.persistentDataPath);
+                Debug.Log($"[METADATA] persistentDataPath contents: Dirs=[{string.Join(", ", allDirs.Select(Path.GetFileName))}], Files=[{string.Join(", ", allFiles.Select(Path.GetFileName))}]");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[METADATA] Exception creating dataRoot path: {e.Message}");
+            Debug.LogError($"[METADATA] Exception stack trace: {e.StackTrace}");
+        }
+        
+        if (dataRoot != null && Directory.Exists(dataRoot))
+        {
+            Debug.Log($"[METADATA] Data directory exists, scanning for categories...");
+            var categoryDirs = Directory.GetDirectories(dataRoot);
+            Debug.Log($"[METADATA] Found {categoryDirs.Length} category directories: [{string.Join(", ", categoryDirs.Select(Path.GetFileName))}]");
+            
             int processedItems = 0;
 
             foreach (var categoryDir in categoryDirs)
             {
                 string category = Path.GetFileName(categoryDir);
-                // Get files and sort them by name to ensure consistent order
-                var imageFiles = Directory.GetFiles(categoryDir, "*.*")
+                Debug.Log($"[METADATA] Processing category directory: {categoryDir}");
+                Debug.Log($"[METADATA] Category name: {category}");
+                
+                if (!Directory.Exists(categoryDir))
+                {
+                    Debug.LogWarning($"[METADATA] Category directory does not exist: {categoryDir}");
+                    continue;
+                }
+                
+                // Get all .txt files in this category directory and sort them
+                Debug.Log($"[METADATA] Scanning for .txt files in: {categoryDir}");
+                var allFiles = Directory.GetFiles(categoryDir);
+                Debug.Log($"[METADATA] All files in {category}: {string.Join(", ", allFiles.Select(Path.GetFileName))}");
+                
+                var txtFiles = allFiles
                     .Where(f => {
                         string ext = Path.GetExtension(f).ToLower();
-                        return ext == ".jpg" || ext == ".png";
+                        string name = Path.GetFileName(f).ToLower();
+                        bool isTxt = ext == ".txt";
+                        bool notFilesFile = !name.StartsWith("files");
+                        bool notHomeFile = !name.StartsWith("home");
+                        Debug.Log($"[METADATA] File {Path.GetFileName(f)}: isTxt={isTxt}, notFilesFile={notFilesFile}, notHomeFile={notHomeFile}");
+                        return isTxt && notFilesFile && notHomeFile;
                     })
                     .OrderBy(f => Path.GetFileNameWithoutExtension(f)) // Sort by filename
                     .ToList();
 
-                foreach (var imageFile in imageFiles)
+                Debug.Log($"[METADATA] Found {txtFiles.Count} valid metadata files in {category}");
+                foreach (var file in txtFiles)
                 {
-                    string fileName = Path.GetFileNameWithoutExtension(imageFile);
-                    string relativePath = Path.Combine("360 Images", category, Path.GetFileName(imageFile));
-                    
-                    loadedElements.Add(new HKCarouselElementData
+                    Debug.Log($"[METADATA] Will process: {Path.GetFileName(file)}");
+                }
+
+                foreach (var txtFile in txtFiles)
+                {
+                    try
                     {
-                        Name = fileName,
-                        Category = category,
-                        VideoPath = relativePath,
-                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
-                        IsImage360 = true
-                    });
+                        Debug.Log($"[METADATA] Processing file: {txtFile}");
+                        
+                        // Parse metadata file directly into HKCarouselElementData
+                        var elementData = ParseMetadataFile(txtFile);
+                        
+                        if (elementData != null)
+                        {
+                            // Log what we parsed
+                            Debug.Log($"[METADATA] Successfully loaded: {elementData.Name} (Category: {elementData.Category}, Type: {(elementData.IsImage360 ? "Image" : "Video")})");
+                            
+                            loadedElements.Add(elementData);
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"[METADATA] Failed to parse metadata file: {txtFile}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"[METADATA] Error processing metadata file {txtFile}: {e.Message}");
+                        Debug.LogError($"[METADATA] Exception stack trace: {e.StackTrace}");
+                    }
 
                     processedItems++;
                     if (processedItems % BATCH_SIZE == 0)
                     {
-                        yield return null;
+                        yield return null; // Yield control to avoid freezing
                     }
                 }
             }
         }
-
-        // Videos second
-        string videosRoot = Path.Combine(Application.persistentDataPath, "Videos");
-        if (Directory.Exists(videosRoot))
+        else
         {
-            var categoryDirs = Directory.GetDirectories(videosRoot);
-            int processedItems = 0;
-
-            foreach (var categoryDir in categoryDirs)
+            Debug.LogWarning($"[METADATA] Data directory not found: {dataRoot}");
+            
+            // Try to list what's actually in persistentDataPath
+            try
             {
-                string category = Path.GetFileName(categoryDir);
-                // Get files and sort them by name to ensure consistent order
-                var videoFiles = Directory.GetFiles(categoryDir, "*.mp4")
-                    .OrderBy(f => Path.GetFileNameWithoutExtension(f)) // Sort by filename
-                    .ToList();
-
-                foreach (var videoFile in videoFiles)
+                if (Directory.Exists(Application.persistentDataPath))
                 {
-                    string fileName = Path.GetFileNameWithoutExtension(videoFile);
-                    string relativePath = Path.Combine("Videos", category, Path.GetFileName(videoFile));
-                    
-                    loadedElements.Add(new HKCarouselElementData
-                    {
-                        Name = fileName,
-                        Category = category,
-                        VideoPath = relativePath,
-                        ThumbnailPath = $"Thumbnails/{category}/{fileName}",
-                        IsImage360 = false
-                    });
-
-                    processedItems++;
-                    if (processedItems % BATCH_SIZE == 0)
-                    {
-                        yield return null;
-                    }
+                    var topLevelDirs = Directory.GetDirectories(Application.persistentDataPath);
+                    var topLevelFiles = Directory.GetFiles(Application.persistentDataPath);
+                    Debug.Log($"[METADATA] Contents of persistentDataPath: Dirs=[{string.Join(", ", topLevelDirs.Select(Path.GetFileName))}], Files=[{string.Join(", ", topLevelFiles.Select(Path.GetFileName))}]");
                 }
+                else
+                {
+                    Debug.LogError($"[METADATA] persistentDataPath does not exist: {Application.persistentDataPath}");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[METADATA] Error listing persistentDataPath contents: {e.Message}");
             }
         }
 
-        // Remove the final sorting that was messing up the order
+        if (loadedElements.Count == 1) // Only Home card
+        {
+            Debug.LogWarning("No content found in persistent data path!");
+        }
+
+        Debug.Log($"[METADATA] Total elements loaded: {loadedElements.Count}");
+        
         cachedElements = loadedElements;
         ApplyElementsToCarousel(loadedElements);
+    }
+
+    /// <summary>
+    /// Parses a metadata .txt file and returns HKCarouselElementData
+    /// NO MEDIA PATHS ARE STORED - only metadata for on-demand loading!
+    /// </summary>
+    private HKCarouselElementData ParseMetadataFile(string filePath)
+    {
+        var data = new HKCarouselElementData
+        {
+            Name = Path.GetFileNameWithoutExtension(filePath),
+            Category = Path.GetFileName(Path.GetDirectoryName(filePath)),
+            VideoPath = null, // ✅ NO PRE-LOADING: Path resolved dynamically when needed
+            ThumbnailPath = ResolveThumbnailPath(Path.GetFileNameWithoutExtension(filePath), Path.GetFileName(Path.GetDirectoryName(filePath))) // ✅ RESOLVE NOW: Thumbnails load with carousel
+        };
+
+        try
+        {
+            string[] lines = File.ReadAllLines(filePath);
+            string audioPath = null;
+            string description = null;
+            
+            foreach (string line in lines)
+            {
+                string trimmedLine = line.Trim();
+                if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                // Split by first colon to handle descriptions that may contain colons
+                int colonIndex = trimmedLine.IndexOf(':');
+                if (colonIndex <= 0) continue;
+
+                string key = trimmedLine.Substring(0, colonIndex).Trim();
+                string value = trimmedLine.Substring(colonIndex + 1).Trim();
+
+                switch (key.ToLower())
+                {
+                    case "type":
+                        bool isImage = value.Trim().ToLower() == "image";
+                        data.IsImage360 = isImage;
+                        Debug.Log($"[METADATA] {data.Name}: Type = {(isImage ? "IMAGE" : "VIDEO")} (on-demand loading)");
+                        break;
+                    case "audio":
+                        audioPath = value;
+                        Debug.Log($"[METADATA] {data.Name}: Audio = {audioPath} (will load when triggered)");
+                        break;
+                    case "description":
+                        description = value;
+                        Debug.Log($"[METADATA] {data.Name}: Description = {description}");
+                        break;
+                }
+            }
+            
+            Debug.Log($"[METADATA] ✅ Parsed metadata for '{data.Name}' - NO media pre-loaded, will resolve on trigger");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[METADATA] Error parsing file {filePath}: {e.Message}");
+            return null;
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// 🎵 ON-DEMAND AUDIO: Extracts audio path from metadata when needed
+    /// </summary>
+    private string GetAudioPathFromMetadata(string elementName, string category)
+    {
+        try
+        {
+            string metadataPath = Path.Combine(Application.persistentDataPath, "Data", category, elementName + ".txt");
+            Debug.Log($"[ON-DEMAND AUDIO] Reading metadata for audio: {metadataPath}");
+            
+            if (File.Exists(metadataPath))
+            {
+                string[] lines = File.ReadAllLines(metadataPath);
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    if (string.IsNullOrEmpty(trimmedLine)) continue;
+
+                    int colonIndex = trimmedLine.IndexOf(':');
+                    if (colonIndex <= 0) continue;
+
+                    string key = trimmedLine.Substring(0, colonIndex).Trim();
+                    string value = trimmedLine.Substring(colonIndex + 1).Trim();
+
+                    if (key.ToLower() == "audio")
+                    {
+                        Debug.Log($"[ON-DEMAND AUDIO] ✅ Found audio reference: {value}");
+                        return value;
+                    }
+                }
+                Debug.Log($"[ON-DEMAND AUDIO] No audio reference found in metadata");
+            }
+            else
+            {
+                Debug.LogWarning($"[ON-DEMAND AUDIO] Metadata file not found: {metadataPath}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[ON-DEMAND AUDIO] Error extracting audio path for {elementName}: {e.Message}");
+        }
+        
+        return null;
+    }
+
+    /// <summary>
+    /// 🎯 ON-DEMAND MEDIA LOADING: Only called when trigger is pressed!
+    /// Dynamically finds the correct media file and returns FULL path (like images)
+    /// </summary>
+    private string ResolveMediaPath(string elementName, string category, bool isImage360)
+    {
+        string mediaType = isImage360 ? "IMAGE" : "VIDEO";
+        string mediaFolder = isImage360 ? "360 Images" : "Videos";
+        string[] extensions = isImage360 ? new[] { ".png", ".jpg" } : new[] { ".mp4" };
+        
+        Debug.Log($"[ON-DEMAND] 🎯 Looking for {mediaType}: '{elementName}' in category '{category}'");
+        
+        // Build the full category path like we do for images
+        string categoryPath = Path.Combine(Application.persistentDataPath, mediaFolder, category);
+        Debug.Log($"[ON-DEMAND] Category path: {categoryPath}");
+        
+        if (!Directory.Exists(categoryPath))
+        {
+            Debug.LogError($"[ON-DEMAND] ❌ Category directory not found: {categoryPath}");
+            return null;
+        }
+        
+        // Get all files in the category directory  
+        var allFiles = Directory.GetFiles(categoryPath);
+        Debug.Log($"[ON-DEMAND] Files found: [{string.Join(", ", allFiles.Select(Path.GetFileName))}]");
+        
+        // Try to find exact match first
+        foreach (string ext in extensions)
+        {
+            string exactFileName = elementName + ext;
+            string exactPath = Path.Combine(categoryPath, exactFileName);
+            
+            Debug.Log($"[ON-DEMAND] Checking exact: {exactPath}");
+            
+            if (File.Exists(exactPath))
+            {
+                Debug.Log($"[ON-DEMAND] ✅ FOUND {mediaType} (exact): {exactPath}");
+                return exactPath; // Return FULL PATH like images do
+            }
+        }
+        
+        // If exact match fails, try fuzzy matching with cleaned names
+        Debug.Log($"[ON-DEMAND] Exact match failed, trying fuzzy matching...");
+        string targetClean = elementName.Trim().ToLowerInvariant();
+        
+        foreach (string filePath in allFiles)
+        {
+            string fileName = Path.GetFileName(filePath);
+            string fileNameNoExt = Path.GetFileNameWithoutExtension(fileName);
+            string fileExt = Path.GetExtension(fileName).ToLowerInvariant();
+            
+            // Clean the actual filename (remove special chars, normalize whitespace)
+            string actualClean = fileNameNoExt.Trim().ToLowerInvariant();
+            actualClean = System.Text.RegularExpressions.Regex.Replace(actualClean, @"\s+", " ");
+            actualClean = actualClean.Replace("\n", "").Replace("\r", "");
+            
+            Debug.Log($"[ON-DEMAND] Comparing target:'{targetClean}' vs actual:'{actualClean}' (ext:{fileExt})");
+            
+            if (extensions.Contains(fileExt) && actualClean.Equals(targetClean))
+            {
+                Debug.Log($"[ON-DEMAND] ✅ FOUND {mediaType} (fuzzy): {filePath}");
+                Debug.Log($"[ON-DEMAND] Matched '{fileName}' with cleaned target '{targetClean}'");
+                return filePath; // Return FULL PATH like images do
+            }
+        }
+        
+        Debug.LogError($"[ON-DEMAND] ❌ Could not find {mediaType} for '{elementName}' in '{category}'");
+        Debug.LogError($"[ON-DEMAND] Available: {string.Join(", ", allFiles.Select(f => Path.GetFileName(f)))}");
+        return null;
+    }
+
+    /// <summary>
+    /// 🖼️ THUMBNAIL LOADING: Called during carousel creation to find thumbnail files
+    /// Dynamically finds the correct thumbnail file for carousel display
+    /// </summary>
+    private string ResolveThumbnailPath(string elementName, string category)
+    {
+        string[] extensions = { ".png", ".jpg" };
+        
+        Debug.Log($"[THUMBNAIL] 🖼️ Looking for thumbnail: '{elementName}' in category '{category}'");
+        
+        string thumbnailBasePath = Path.Combine(Application.persistentDataPath, "Thumbnails");
+        string categoryPath = Path.Combine(thumbnailBasePath, category);
+        
+        Debug.Log($"[THUMBNAIL] Category path: {categoryPath}");
+        Debug.Log($"[THUMBNAIL] Category path exists: {Directory.Exists(categoryPath)}");
+        
+        if (Directory.Exists(categoryPath))
+        {
+            var allFiles = Directory.GetFiles(categoryPath);
+            Debug.Log($"[THUMBNAIL] All files in {category} thumbnails: [{string.Join(", ", allFiles.Select(Path.GetFileName))}]");
+        }
+        
+        foreach (string ext in extensions)
+        {
+            string fullPath = Path.Combine(categoryPath, elementName + ext);
+            
+            Debug.Log($"[THUMBNAIL] Checking: {fullPath}");
+            Debug.Log($"[THUMBNAIL] File exists: {File.Exists(fullPath)}");
+            
+            if (File.Exists(fullPath))
+            {
+                Debug.Log($"[THUMBNAIL] ✅ FOUND thumbnail: {fullPath}");
+                return fullPath; // Return full path for thumbnail loading
+            }
+        }
+        
+        Debug.LogWarning($"[THUMBNAIL] ⚠️ Could not find thumbnail for '{elementName}' in category '{category}'");
+        Debug.LogWarning($"[THUMBNAIL] Searched for files: {string.Join(", ", extensions.Select(ext => elementName + ext))}");
+        Debug.LogWarning($"[THUMBNAIL] In directory: {categoryPath}");
+        return null;
     }
 
     private void ApplyElementsToCarousel(List<HKCarouselElementData> elements)
     {
         if (carousel360 == null) return;
+
+        Debug.Log($"[XR360CarouselController] Applying {elements.Count} elements to carousel");
 
         var carouselType = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>);
         var elementsField = carouselType.GetField("_carouselElements", 
@@ -1503,11 +1870,36 @@ public class XR360CarouselController : MonoBehaviour
         if (elementsField != null)
         {
             elementsField.SetValue(carousel360, elements);
+            Debug.Log($"[XR360CarouselController] Set {elements.Count} elements on carousel");
 
             if (elements.Count > 0 && defaultIndexField != null)
             {
                 int middleIndex = Mathf.FloorToInt(elements.Count / 2f);
                 defaultIndexField.SetValue(carousel360, middleIndex);
+                Debug.Log($"[XR360CarouselController] Set default index to {middleIndex}");
+            }
+
+            // Trigger CreatePool if it hasn't been created yet
+            var poolCreatedField = carouselType.GetField("_poolCreated", 
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (poolCreatedField != null)
+            {
+                bool poolCreated = (bool)poolCreatedField.GetValue(carousel360);
+                if (!poolCreated)
+                {
+                    Debug.Log("[XR360CarouselController] Pool not created yet, triggering CreatePool...");
+                    var createPoolMethod = carouselType.GetMethod("CreatePool", 
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (createPoolMethod != null)
+                    {
+                        createPoolMethod.Invoke(carousel360, null);
+                        Debug.Log("[XR360CarouselController] CreatePool called successfully");
+                    }
+                }
+                else
+                {
+                    Debug.Log("[XR360CarouselController] Pool already created, refreshing...");
+                }
             }
 
             var refreshMethod = carouselType.GetMethod("RefreshItems", 
@@ -1519,7 +1911,13 @@ public class XR360CarouselController : MonoBehaviour
             {
                 refreshMethod.Invoke(carousel360, null);
                 updateMethod.Invoke(carousel360, null);
+                Debug.Log("[XR360CarouselController] Carousel refreshed and updated");
             }
+
+            // 🎯 SMART LOADING: Initialize smart thumbnail loading after carousel is set up
+            Debug.Log("[XR360CarouselController] Initializing smart thumbnail loading...");
+            CarouselElementDemo.InitializeSmartLoading(carousel360);
+            Debug.Log("[XR360CarouselController] Smart thumbnail loading initialized");
         }
     }
 

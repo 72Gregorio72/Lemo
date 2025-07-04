@@ -4,6 +4,7 @@ using System.Collections;
 using HKCarouselLayoutGroup;
 using UnityEngine.UI;
 using System.IO;
+using System.Linq;
 
 public class CarouselManager : MonoBehaviour
 {
@@ -34,6 +35,18 @@ public class CarouselManager : MonoBehaviour
         if (progressText != null)
             progressText.text = "Checking for content...";
 
+        // Check if we have any content FIRST
+        if (!HasContent())
+        {
+            Debug.LogWarning("No content found in persistent data path!");
+            if (progressText != null)
+                progressText.text = "No content available";
+            yield break;
+        }
+
+        if (progressText != null)
+            progressText.text = "Creating carousel...";
+
         // Create the carousel directly
         GameObject carouselGO = Instantiate(carouselPrefab, Vector3.zero, Quaternion.identity);
         if (carouselParent != null)
@@ -48,39 +61,54 @@ public class CarouselManager : MonoBehaviour
             yield break;
         }
 
-        // Wait for initialization to complete
-        while (!activeCarousel.IsInitialized)
+        if (progressText != null)
+            progressText.text = "Loading metadata...";
+
+        // Find XR360CarouselController if not assigned
+        if (carouselController == null)
         {
-            yield return null;
+            carouselController = FindObjectOfType<XR360CarouselController>();
+            if (carouselController != null)
+            {
+                Debug.Log("[CarouselManager] Found XR360CarouselController automatically");
+            }
         }
 
-        // Check if we have any content
-        if (!HasContent())
-        {
-            Debug.LogWarning("No content found in persistent data path!");
-            if (progressText != null)
-                progressText.text = "No content available";
-            Destroy(carouselGO);
-            yield break;
-        }
-
-        // Initialize the carousel controller
+        // Initialize the carousel controller BEFORE carousel tries to initialize itself
         if (carouselController != null)
         {
             var demo = carouselGO.GetComponent<HKCarouselLayoutGroup3DDemo>();
             if (demo != null)
             {
+                Debug.Log("[CarouselManager] Initializing XR360CarouselController with carousel...");
                 carouselController.Initialize(demo);
-                Debug.Log("Successfully initialized carousel controller");
+                
+                // Give it a few frames to load metadata and populate elements
+                yield return new WaitForSeconds(1f);
+                
+                Debug.Log("[CarouselManager] XR360CarouselController initialization complete");
             }
             else
             {
                 Debug.LogError("Could not find HKCarouselLayoutGroup3DDemo component on instantiated carousel!");
+                Destroy(carouselGO);
+                yield break;
             }
         }
         else
         {
-            Debug.LogWarning("No XR360CarouselController reference set in CarouselManager!");
+            Debug.LogError("No XR360CarouselController reference set in CarouselManager!");
+            Destroy(carouselGO);
+            yield break;
+        }
+
+        if (progressText != null)
+            progressText.text = "Finalizing carousel...";
+
+        // Now wait for carousel initialization to complete (if it hasn't already)
+        while (!activeCarousel.IsInitialized)
+        {
+            yield return null;
         }
 
         isInitialized = true;
@@ -94,28 +122,42 @@ public class CarouselManager : MonoBehaviour
 
         if (progressText != null)
             progressText.gameObject.SetActive(false);
+
+        Debug.Log("[CarouselManager] Carousel initialization complete!");
     }
 
     private bool HasContent()
     {
-        string[] folders = { "Videos", "360 Images" };
-        string persistentPath = Application.persistentDataPath;
-
-        foreach (var folder in folders)
+        // NEW: Check for metadata files in Data/ folder instead of media files
+        string dataPath = Path.Combine(Application.persistentDataPath, "Data");
+        Debug.Log($"[CarouselManager] Checking for content in: {dataPath}");
+        
+        if (!Directory.Exists(dataPath))
         {
-            string folderPath = Path.Combine(persistentPath, folder);
-            if (Directory.Exists(folderPath))
+            Debug.Log($"[CarouselManager] Data directory does not exist");
+            return false;
+        }
+
+        // Check each category folder for .txt files
+        foreach (var categoryDir in Directory.GetDirectories(dataPath))
+        {
+            string category = Path.GetFileName(categoryDir);
+            var txtFiles = Directory.GetFiles(categoryDir, "*.txt")
+                .Where(f => {
+                    string name = Path.GetFileNameWithoutExtension(f).ToLower();
+                    return !name.StartsWith("files") && !name.StartsWith("home");
+                })
+                .ToArray();
+                
+            Debug.Log($"[CarouselManager] Category {category}: found {txtFiles.Length} metadata files");
+            
+            if (txtFiles.Length > 0)
             {
-                // Check each category folder
-                foreach (var categoryDir in Directory.GetDirectories(folderPath))
-                {
-                    if (Directory.GetFiles(categoryDir, "*.*").Length > 0)
-                    {
-                        return true;
-                    }
-                }
+                return true;
             }
         }
+        
+        Debug.Log($"[CarouselManager] No metadata content found");
         return false;
     }
 

@@ -1,4 +1,5 @@
 Position 0 0 0 
 Rotation 0 0 0  
+Type: image
 Audio: lettera_introduttiva
 Description: Parole di accoglienza e forza per iniziare il percorso con consapevolezza.

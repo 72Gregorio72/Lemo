@@ -1,4 +1,5 @@
 Position 0 0 0 
 Rotation 0 0 0  
+Type: image
 Audio: il_body_scan_luminoso
 Description: Un viaggio meditativo nel corpo, guidato da una luce gentile che porta ascolto e sollievo.

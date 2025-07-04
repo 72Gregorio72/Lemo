@@ -124,21 +124,22 @@ namespace HKCarouselLayoutGroup
             if (_progressText != null)
             {
                 _progressText.gameObject.SetActive(true);
-                _progressText.text = "Starting initialization...";
+                _progressText.text = "Waiting for external initialization...";
             }
 
-#if UNITY_ANDROID && !UNITY_EDITOR
-            // On Android, we need to use UnityWebRequest to access files in StreamingAssets
-            yield return StartCoroutine(CopyAndroidStreamingAssets());
-#else
-            // On other platforms, we can copy directly
-            yield return StartCoroutine(CopyStreamingAssets());
-#endif
+            // DISABLED: Asset copying and loading is now handled by XR360CarouselController
+            // The XR360CarouselController will populate _carouselElements and then call CreatePool()
+            Debug.Log("[HKCarouselLayoutGroup3D] Waiting for XR360CarouselController to populate elements...");
+            
+            // Wait for _carouselElements to be populated by XR360CarouselController
+            while (_carouselElements == null || _carouselElements.Count == 0)
+            {
+                yield return new WaitForSeconds(0.1f);
+            }
+            
+            Debug.Log($"[HKCarouselLayoutGroup3D] Elements populated by external controller: {_carouselElements.Count} elements");
 
-            // Now load the assets
-            LoadAssetsFromPersistentDataPath();
-
-            // Create the pool after loading assets
+            // Create the pool after elements are loaded by external controller
             CreatePool();
 
             if (_progressText != null)
@@ -849,6 +850,11 @@ namespace HKCarouselLayoutGroup
 
         void LoadAssetsFromPersistentDataPath()
         {
+            // DISABLED: This old loading system has been replaced by metadata-based loading in XR360CarouselController
+            Debug.Log("[CAROUSEL] Old loading system disabled - using metadata-based loading instead");
+            return;
+            
+            /*
             var loadedElements = new List<HKCarouselElementData>();
 
             Debug.Log("[CAROUSEL] Starting to load assets...");
@@ -981,6 +987,7 @@ namespace HKCarouselLayoutGroup
             // Refresh carousel UI
             RefreshItems();
             UpdateCarousel();
+            */
         }
     }
 
