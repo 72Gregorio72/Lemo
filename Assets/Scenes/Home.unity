@@ -1132,6 +1132,7 @@ GameObject:
   - component: {fileID: 1245141212}
   - component: {fileID: 1245141211}
   - component: {fileID: 1245141215}
+  - component: {fileID: 1245141217}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -1243,6 +1244,33 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RaycastTriggerInteraction: 1
+--- !u!114 &1245141217
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1245141210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a2d7d89889b4d94fa1f8d6fe49788e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Target: {fileID: 1688922381}
+  m_TargetOffset: {x: 0, y: 0, z: 5}
+  m_FollowInLocalSpace: 0
+  m_ApplyTargetInLocalSpace: 0
+  m_MovementSpeed: 6
+  m_MovementSpeedVariancePercentage: 0.25
+  m_SnapOnEnable: 1
+  m_PositionFollowMode: 1
+  m_MinDistanceAllowed: 0.01
+  m_MaxDistanceAllowed: 0.3
+  m_TimeUntilThresholdReachesMaxDistance: 3
+  m_RotationFollowMode: 1
+  m_MinAngleAllowed: 0.1
+  m_MaxAngleAllowed: 5
+  m_TimeUntilThresholdReachesMaxAngle: 3
 --- !u!23 &1403168830 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 3420900476490711012, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
@@ -1761,6 +1789,11 @@ MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 383915805754998643, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
   m_PrefabInstance: {fileID: 1688922379}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &1688922381 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7277802327414017193, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
+  m_PrefabInstance: {fileID: 1688922379}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1967431806 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3831962442353154631, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
@@ -1972,10 +2005,6 @@ MonoBehaviour:
     thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
     description: Scopri un percorso guidato nella meditazione tra video, immagini
       ed audio immersivi
-  - sceneName: Paint
-    sceneIndex: 3
-    thumbnailPath: Scene Thumbnails/Paint Thumbnails
-    description: Divertiti dipingendo
   - sceneName: Memory
     sceneIndex: 4
     thumbnailPath: Scene Thumbnails/Memory Thumbnail
