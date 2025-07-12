@@ -7,6 +7,11 @@ public class FollowPlayerView : MonoBehaviour
     public float heightOffset = 0f; // offset verticale, se vuoi tenerlo un po' più su o più giù
     public float followSpeed = 5f; // velocità di aggiornamento posizione/rotazione
 
+	void Start()
+	{
+		playerCamera = Camera.main.transform; // Assicurati che playerCamera sia impostata alla camera principale
+	}
+
     void LateUpdate()
     {
         if (playerCamera == null) return;

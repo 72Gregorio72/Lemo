@@ -29,6 +29,8 @@ TagManager:
   - SpawnBalls
   - Pencil
   - Line
+  - lv2
+  - lv3
   layers:
   - Default
   - TransparentFX

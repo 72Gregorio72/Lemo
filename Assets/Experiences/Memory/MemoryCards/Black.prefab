@@ -220,6 +220,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cameraObject: {fileID: 0}
+  currentRow: {fileID: 0}
 --- !u!1 &5183079471488367697
 GameObject:
   m_ObjectHideFlags: 0

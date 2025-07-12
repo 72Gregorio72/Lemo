@@ -1,63 +1,53 @@
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-using System.Collections;
 
 public class MemoryGameManager : MonoBehaviour
 {
-    [Header("Prefab già pronti da usare (9 GameObject):")]
-    public List<GameObject> cardsToUse; // 9 prefab: 4 coppie + 1 nera
+    [Header("Impostazioni automatiche")]
+    public List<GameObject> cardPrefabs; // Prefab delle carte (colori + Black)
+    public int numberOfCards = 6; // Numero di carte da giocare, impostabile da Inspector
+    public Transform centerPoint; // Centro del tavolo
+    public float radius = 3f; // Raggio del cerchio delle carte
 
-    [Header("Posizioni 3x3 dove spawnare")]
-    public List<Transform> cardPositions; // 9 posizioni
+    [Header("UI")]
+    public TextMeshProUGUI pointsText;
+    public TextMeshProUGUI winPointsText;
 
     private List<GameObject> spawnedCards = new List<GameObject>();
     private List<GameObject> selectedCards = new List<GameObject>();
-    private GameObject cardsContainer; // Container for all spawned cards
+    private GameObject cardsContainer;
 
-    public TextMeshProUGUI pointsText; // Riferimento al testo dei punti (se necessario)
-
-    private int points = 0; // Punti totali (se necessario)
-
-    private int winCount = 0; // Contatore per le coppie trovate (se necessario)
-
-    public TextMeshProUGUI winPointsText; // Riferimento al testo dei punti di vittoria (se necessario)
-
+    private int points = 0;
+    private int winCount = 0;
     private int matchCount = 0;
+    private int totalPairs = 0;
 
     private GameObject selectedCard1;
     private GameObject selectedCard2;
 
     private AudioSource audioSource;
-
-    public AudioClip correctSound; // Clip audio per il suono di flip
-
-    public AudioClip wrongSound; // Clip audio per il su
+    public AudioClip correctSound;
+    public AudioClip wrongSound;
 
     private bool isGameOver = false;
 
     void Start()
     {
-        // Create the container GameObject if it doesn't exist
         CreateCardsContainer();
-        
         winPointsText.text = "Partite vinte: " + winCount.ToString();
-        pointsText.text = "Coppie trovate: " + points.ToString() + "/4";
+        pointsText.text = "Coppie trovate: " + points.ToString();
         StartNewRound();
     }
 
     private void CreateCardsContainer()
     {
-        // Destroy existing container if it exists
         if (cardsContainer != null)
-        {
             Destroy(cardsContainer);
-        }
 
-        // Create new container
         cardsContainer = new GameObject("Cards_Container");
-        cardsContainer.transform.SetParent(transform); // Parent to the MemoryGameManager
+        cardsContainer.transform.SetParent(transform);
         cardsContainer.transform.localPosition = Vector3.zero;
         cardsContainer.transform.localRotation = Quaternion.identity;
     }
@@ -65,28 +55,46 @@ public class MemoryGameManager : MonoBehaviour
     public void StartNewRound()
     {
         points = 0;
-        pointsText.text = "Coppie trovate: " + points.ToString() + "/4";
-        if (cardsToUse.Count != 9 || cardPositions.Count != 9)
-        {
-            Debug.LogError("Devi assegnare esattamente 9 carte e 9 posizioni!");
-            return;
-        }
-
         matchCount = 0;
         ClearCards();
-
-        // Create new container for the new round
         CreateCardsContainer();
 
-        List<GameObject> shuffledCards = new List<GameObject>(cardsToUse);
-        shuffledCards.Shuffle(); // Estensione usata prima
+        List<GameObject> cardsToSpawn = new List<GameObject>();
+        totalPairs = numberOfCards / 2;
+        bool hasBomb = numberOfCards % 2 != 0;
 
-        for (int i = 0; i < 9; i++)
+		// Crea le coppie
+        // Seleziona solo prefab che NON sono "Black" per le coppie
+        var nonBlackPrefabs = cardPrefabs.Where(c => !c.CompareTag("Black")).ToList();
+        for (int i = 0; i < totalPairs; i++)
         {
-            StartCoroutine(InstantiateCardWithDelay(i * 0.1f, shuffledCards[i], cardPositions[i].position, cardPositions[i].gameObject));
+            GameObject prefab = nonBlackPrefabs[i % nonBlackPrefabs.Count];
+            cardsToSpawn.Add(prefab);
+            cardsToSpawn.Add(prefab);
         }
 
-        // Mostra tutte le carte per 2 secondi all'inizio
+        // Aggiungi la bomba se dispari
+        if (hasBomb)
+        {
+            GameObject bombPrefab = cardPrefabs.Find(c => c.CompareTag("Black"));
+            if (bombPrefab != null)
+                cardsToSpawn.Add(bombPrefab);
+        }
+
+        // Mischia le carte
+        cardsToSpawn = cardsToSpawn.OrderBy(x => Random.value).ToList();
+
+		// Calcola posizioni in cerchio ruotato di 90 gradi sull'asse Y
+		for (int i = 0; i < cardsToSpawn.Count; i++)
+		{
+			float angle = i * Mathf.PI * 2 / cardsToSpawn.Count;
+			// Ruota il cerchio di 90 gradi sull'asse Y (asse verticale)
+			float rotatedAngle = angle + Mathf.PI / 2;
+			Vector3 pos = centerPoint.position + new Vector3(Mathf.Sin(rotatedAngle), Mathf.Cos(rotatedAngle), 0) * radius;
+			InstantiateCard(cardsToSpawn[i], pos);
+		}
+
+        pointsText.text = $"Coppie trovate: {points}/{totalPairs}";
         ShowAllCardsTemporarily();
         Invoke("SetGameOver", 1f);
     }
@@ -96,52 +104,37 @@ public class MemoryGameManager : MonoBehaviour
         isGameOver = false;
     }
 
-    IEnumerator InstantiateCardWithDelay(float delay, GameObject cardPrefab, Vector3 position, GameObject cardPosition)
-    {
-        yield return new WaitForSeconds(delay);
-        InstantiateCard(cardPrefab, position, cardPosition);
-    }
-
-    void InstantiateCard(GameObject cardPrefab, Vector3 position, GameObject cardPosition)
+    void InstantiateCard(GameObject cardPrefab, Vector3 position)
     {
         GameObject card = Instantiate(cardPrefab, position, Quaternion.identity, cardsContainer.transform);
         card.GetComponent<MemoryCard>().Init(this);
-        card.GetComponent<FollowCameraHeight>().currentRow = cardPosition;
-        card.transform.localScale = new Vector3(1f, 1f, 1f); // Imposta la dimensione della carta
+        card.transform.localScale = new Vector3(1f, 1f, 1f);
         spawnedCards.Add(card);
     }
 
     void ClearCards()
     {
-        for (int i = 0; i < spawnedCards.Count; i++)
+        foreach (var card in spawnedCards)
         {
-            if (spawnedCards[i] != null)
-                StartCoroutine(DestroyCardWithDelay(i * 0.1f, spawnedCards[i]));
+            if (card != null)
+                Destroy(card);
         }
         spawnedCards.Clear();
         selectedCards.Clear();
 
-        // Destroy the container (it will be recreated in StartNewRound)
         if (cardsContainer != null)
-        {
             Destroy(cardsContainer);
-        }
-    }
-
-    IEnumerator DestroyCardWithDelay(float delay, GameObject card)
-    {
-        yield return new WaitForSeconds(delay);
-        Destroy(card);
     }
 
     public void CardSelected(GameObject card)
     {
-        if (selectedCards.Contains(card) || selectedCards.Count >= 2) return;
+        if (selectedCards.Contains(card) || selectedCards.Count >= 2 || isGameOver)
+            return;
 
         selectedCards.Add(card);
         card.GetComponent<MemoryCard>().Reveal();
 
-        if (card.CompareTag("Black") && !isGameOver)
+        if (card.CompareTag("Black"))
         {
             isGameOver = true;
             selectedCards.Clear();
@@ -150,7 +143,7 @@ public class MemoryGameManager : MonoBehaviour
         }
         else if (selectedCards.Count == 2)
         {
-            Invoke(nameof(CheckMatch), 2f);
+            Invoke(nameof(CheckMatch), 1f);
         }
     }
 
@@ -165,13 +158,12 @@ public class MemoryGameManager : MonoBehaviour
             card2.GetComponent<MemoryCard>().Remove();
             matchCount++;
             points++;
-            pointsText.text = "Coppie trovate: " + points.ToString() + "/4";
+            pointsText.text = $"Coppie trovate: {points}/{totalPairs}";
             audioSource = this.gameObject.GetComponent<AudioSource>();
             if (audioSource != null && correctSound != null)
-            {
                 audioSource.PlayOneShot(correctSound);
-            }
-            if (matchCount == 4)
+
+            if (matchCount == totalPairs)
             {
                 winCount++;
                 winPointsText.text = "Partite vinte: " + winCount.ToString();
@@ -190,10 +182,9 @@ public class MemoryGameManager : MonoBehaviour
     void HideCards()
     {
         audioSource = this.gameObject.GetComponent<AudioSource>();
-        if (audioSource != null && correctSound != null)
-        {
+        if (audioSource != null && wrongSound != null)
             audioSource.PlayOneShot(wrongSound);
-        }
+
         selectedCard1.GetComponent<MemoryCard>().WrongHide();
         selectedCard2.GetComponent<MemoryCard>().WrongHide();
     }
@@ -257,5 +248,4 @@ public class MemoryGameManager : MonoBehaviour
     {
         return new List<GameObject>(spawnedCards);
     }
-
 }
