@@ -84,14 +84,15 @@ public class MemoryCard : MonoBehaviour
         }
     }
 
-    public void Remove()
-    {
-        this.GetComponent<Animator>().SetTrigger("RightSelect");
-        isRevealed = true;
-        IsPermanentlyRevealed = true;
-        face = true;
-        backFace = false;
+	public void Remove()
+	{
+		this.GetComponent<Animator>().SetTrigger("RightSelect");
+		isRevealed = true;
+		IsPermanentlyRevealed = true;
+		face = true;
+		backFace = false;
+		this.gameObject.GetComponent<CheckHitbox>().glowEffect.SetActive(false);
         // front.SetActive(true);
-        // back.SetActive(false);
-    }
+		// back.SetActive(false);
+	}
 }

@@ -2,48 +2,26 @@ using UnityEngine;
 
 public class FollowCameraHeight : MonoBehaviour
 {
-	public GameObject cameraObject; // The camera object to follow
+	public Vector3 offset = new Vector3(0, 0, 0); // Offset from the center point
 
-	public GameObject currentRow;
+	public GameObject center;
 	// Start is called once before the first execution of Update after the MonoBehaviour is created
 	void Start()
 	{
-		if (cameraObject == null)
-		{
-			cameraObject = Camera.main.gameObject; // Assign the main camera if not set
-		}
+
 	}
 
 	// Update is called once per frame
 	void Update()
 	{
-		if (cameraObject == null)
+		if (center != null)
 		{
-			cameraObject = Camera.main.gameObject; // Assign the main camera if not set
+			Vector3 newPosition = center.transform.position + offset;
+			transform.position = newPosition;
 		}
-		if (cameraObject == null)
+		else
 		{
-			cameraObject = Camera.main.gameObject; // Assign the main camera if not set
-		}
-		if (currentRow.tag == "UpperRow")
-		{
-			this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y + 2f, this.transform.position.z);
-		}
-		else if (currentRow.tag == "LowerRow")
-		{
-			this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y - 2f, this.transform.position.z);
-		}
-		else if (currentRow.tag == "MiddleRow")
-		{
-			this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y, this.transform.position.z);
-		}
-		else if (currentRow.tag == "lv2")
-		{
-			this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y + 4f, this.transform.position.z);
-		}
-		else if (currentRow.tag == "lv3")
-		{
-			this.transform.position = new Vector3(this.transform.position.x, cameraObject.transform.position.y - 4f, this.transform.position.z);
+			Debug.LogWarning("Center GameObject is not assigned in FollowCameraHeight script.");
 		}
     }
 }
