@@ -240,7 +240,7 @@ VideoPlayer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5296858}
-  m_Enabled: 1
+  m_Enabled: 0
   m_VideoClip: {fileID: 32900000, guid: cfdb4c49a31c7f34f8063432f0515af6, type: 3}
   m_TargetCameraAlpha: 1
   m_TargetCamera3DLayout: 0
@@ -2000,15 +2000,25 @@ MonoBehaviour:
   _spacingModMulti: 0
   _depthModMulti: 0.7
   sceneElements:
-  - sceneName: Meditazione
-    sceneIndex: 2
-    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
-    description: Scopri un percorso guidato nella meditazione tra video, immagini
-      ed audio immersivi
-  - sceneName: Memory
+  - sceneName: Allenamento Cognitivo
     sceneIndex: 4
     thumbnailPath: Scene Thumbnails/Memory Thumbnail
-    description: metti alla prova la tua memoria!
+    description: "Allena la tua mente e potenzia le tue capacit\xE0 attentive e di
+      concentrazione"
+  - sceneName: Meditazioni
+    sceneIndex: 2
+    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
+    description: Illumina la tua coscienza, ascolta la tua voce interiore, prenditi
+      un momento per ritrovare il tuo centro
+  - sceneName: Orizzonti Naturali
+    sceneIndex: 2
+    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
+    description: '-'
+  - sceneName: Sentieri Letterali
+    sceneIndex: 2
+    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
+    description: Nei racconti e nelle poesie si scoprono e si aprono sentieri di
+      meraviglia
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1

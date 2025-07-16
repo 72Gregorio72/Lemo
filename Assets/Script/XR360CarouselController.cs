@@ -366,8 +366,8 @@ public class XR360CarouselController : MonoBehaviour
             }
         }
 
-        // Pause audio
-        if (audioSource != null && audioSource.isPlaying)
+        // Pause audio (only if it's image audio, not video audio)
+        if (audioSource != null && audioSource.isPlaying && !string.IsNullOrEmpty(currentAudioPath))
         {
             audioSource.Pause();
             isAudioPaused = true;
@@ -392,8 +392,8 @@ public class XR360CarouselController : MonoBehaviour
             }
         }
 
-        // Resume audio if needed
-        if (audioSource != null && isAudioPaused)
+        // Resume audio if needed (only for image audio)
+        if (audioSource != null && isAudioPaused && !string.IsNullOrEmpty(currentAudioPath))
         {
             audioSource.Play();
             isAudioPaused = false;
@@ -433,12 +433,20 @@ public class XR360CarouselController : MonoBehaviour
             triggerPressCount = 1;
             isAudioPaused = false;
 
-            // Get audio path from metadata  
+            // 🎵 CLEAN AUDIO: Stop any video audio and set up image audio
+            CleanupAudio();
+
+            // Get audio path from metadata for images only
             string audioPath = GetAudioPathFromMetadata(data.Name, data.Category);
             if (!string.IsNullOrEmpty(audioPath))
             {
                 Debug.Log($"[ON-DEMAND AUDIO] Setting up audio for image: {audioPath}");
                 HandleAudioPlayback(audioPath);
+            }
+            else
+            {
+                Debug.Log("[ON-DEMAND AUDIO] No audio specified for this image");
+                currentAudioPath = null;
             }
 
             FadeOutCanvas();
@@ -501,13 +509,8 @@ public class XR360CarouselController : MonoBehaviour
             isVideoPaused = false;
             isAudioPaused = false;
 
-            // Get audio path from metadata
-            string audioPath = GetAudioPathFromMetadata(data.Name, data.Category);
-            if (!string.IsNullOrEmpty(audioPath))
-            {
-                Debug.Log($"[ON-DEMAND AUDIO] Setting up audio for video: {audioPath}");
-                HandleAudioPlayback(audioPath);
-            }
+            // 🎵 CLEAN AUDIO: Stop any playing audio from images - videos should use their own audio
+            CleanupAudio();
 
             FadeOutCanvas();
             PlayVideo(resolvedMediaPath, vp);
@@ -522,12 +525,7 @@ public class XR360CarouselController : MonoBehaviour
                 isVideoPaused = false;
             }
 
-            if (audioSource != null && isAudioPaused && !string.IsNullOrEmpty(currentAudioPath))
-            {
-                audioSource.Play();
-                isAudioPaused = false;
-            }
-
+            // 🎵 VIDEOS: Don't resume image audio for videos
             FadeOutCanvas();
         }
         else
@@ -535,12 +533,7 @@ public class XR360CarouselController : MonoBehaviour
             vp.Pause();
             isVideoPaused = true;
 
-            if (audioSource != null && audioSource.isPlaying)
-            {
-                audioSource.Pause();
-                isAudioPaused = true;
-            }
-
+            // 🎵 VIDEOS: Don't pause image audio for videos (it should already be stopped)
             FadeInCanvas(false);
         }
     }
@@ -611,10 +604,13 @@ public class XR360CarouselController : MonoBehaviour
         if (pendingElementData == null || string.IsNullOrEmpty(pendingMediaPath))
             yield break;
 
-        currentMediaPath = pendingMediaPath;
-        triggerPressCount = 1;
-        isVideoPaused = false;
-        isAudioPaused = false;
+                    currentMediaPath = pendingMediaPath;
+            triggerPressCount = 1;
+            isVideoPaused = false;
+            isAudioPaused = false;
+
+            // Clean up any existing audio before playing new media
+            CleanupAudio();
 
         FadeOutCanvas();
 
@@ -647,7 +643,7 @@ public class XR360CarouselController : MonoBehaviour
         
         videoPlayer.enabled = true;
         string fileName = Path.GetFileNameWithoutExtension(videoPath);
-        LoadTransformData(fileName);
+        LoadTransformData(fileName, null, false); // false = not image360 (it's a video)
 
         if (!File.Exists(fullPath))
         {
@@ -739,8 +735,8 @@ public class XR360CarouselController : MonoBehaviour
 
         yield return fadeSequence.WaitForCompletion();
 
-        // Start audio playback
-        TryPlayAudio();
+        // 🎵 VIDEOS: Don't play image audio - videos use their own audio track
+        Debug.Log("[VIDEO] Video playback started - using video's own audio track");
     }
 
     private void DisplayImageOnSphere(string imagePath)
@@ -859,7 +855,7 @@ public class XR360CarouselController : MonoBehaviour
         if (!string.IsNullOrEmpty(fileName))
         {
             Debug.Log("[IMAGE] Loading transform data...");
-            LoadTransformData(fileName, category);
+            LoadTransformData(fileName, category, true); // true = isImage360
             Debug.Log("[IMAGE] Transform data applied");
             // Give a frame for transform to settle
             yield return null;
@@ -1032,6 +1028,18 @@ public class XR360CarouselController : MonoBehaviour
     }
 
     // Audio Methods
+    private void CleanupAudio()
+    {
+        if (audioSource != null)
+        {
+            Debug.Log("[AUDIO_CLEANUP] Stopping and clearing audio source");
+            audioSource.Stop();
+            audioSource.clip = null;
+            currentAudioPath = null;
+            isAudioPaused = false;
+        }
+    }
+
     private void HandleAudioPlayback(string audioFileName)
     {
         Debug.Log($"[AUDIO] Starting HandleAudioPlayback with file: '{audioFileName}'");
@@ -1189,7 +1197,7 @@ public class XR360CarouselController : MonoBehaviour
     }
 
     // Transform Data Methods
-    private void LoadTransformData(string fileName, string category = null)
+    private void LoadTransformData(string fileName, string category = null, bool isImage360 = true)
     {
         if (string.IsNullOrEmpty(fileName))
         {
@@ -1197,7 +1205,7 @@ public class XR360CarouselController : MonoBehaviour
             return;
         }
 
-        Debug.Log($"[TRANSFORM] Looking for data file: {fileName} in category: {category}");
+        Debug.Log($"[TRANSFORM] Looking for data file: {fileName} in category: {category} (isImage360: {isImage360})");
 
         // Use helper function for Data files
         string dataPath;
@@ -1248,20 +1256,28 @@ public class XR360CarouselController : MonoBehaviour
                 string trimmedLine = line.Trim();
                 if (trimmedLine.StartsWith("Audio:"))
                 {
-                    string audioFileName = trimmedLine.Substring("Audio:".Length).Trim();
-                    audioFileName = Path.GetFileNameWithoutExtension(audioFileName);
-                    
-                    // Store audio path base (without extension) for later extension checking
-                    if (!string.IsNullOrEmpty(category))
+                    // 🎵 AUDIO: Only handle audio for images, not videos
+                    if (isImage360)
                     {
-                        currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", category, audioFileName);
+                        string audioFileName = trimmedLine.Substring("Audio:".Length).Trim();
+                        audioFileName = Path.GetFileNameWithoutExtension(audioFileName);
+                        
+                        // Store audio path base (without extension) for later extension checking
+                        if (!string.IsNullOrEmpty(category))
+                        {
+                            currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", category, audioFileName);
+                        }
+                        else
+                        {
+                            currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", audioFileName);
+                        }
+                        
+                        Debug.Log($"[TRANSFORM] Set base audio path to: {currentAudioPath} (for image)");
                     }
                     else
                     {
-                        currentAudioPath = Path.Combine(Application.persistentDataPath, "Audio", audioFileName);
+                        Debug.Log("[TRANSFORM] Ignoring audio data for video - videos use their own audio track");
                     }
-                    
-                    Debug.Log($"[TRANSFORM] Set base audio path to: {currentAudioPath}");
                 }
                 else if (trimmedLine.StartsWith("Position"))
                 {
@@ -1481,7 +1497,7 @@ public class XR360CarouselController : MonoBehaviour
 
     private IEnumerator LoadAssetsAsync()
     {
-        Debug.Log("[CAROUSEL] LoadAssetsAsync coroutine STARTED");
+        Debug.Log("[CAROUSEL] 🚀 LoadAssetsAsync ULTRA-OPTIMIZED STARTED");
         var loadedElements = new List<HKCarouselElementData>();
 
         // Add Home card at the beginning
@@ -1495,150 +1511,101 @@ public class XR360CarouselController : MonoBehaviour
         });
         Debug.Log("[CAROUSEL] Added Home card");
 
-        // Force a yield to ensure coroutine continues
-        yield return null;
+        yield return null; // Frame break
         
-        Debug.Log("[CAROUSEL] Continuing after Home card, about to start metadata loading...");
+        Debug.Log("[CAROUSEL] Starting ultra-fast metadata loading...");
 
-        // NEW: Load from metadata files in Data/<Category>/ folders instead of scanning media folders
-        string dataRoot = null;
+        string dataRoot = Path.Combine(Application.persistentDataPath, "Data");
+        
+        if (!Directory.Exists(dataRoot))
+        {
+            Debug.LogWarning($"[METADATA] Data directory not found: {dataRoot}");
+            cachedElements = loadedElements;
+            ApplyElementsToCarousel(loadedElements);
+            yield break;
+        }
+
+        // 🚀 ULTRA-FAST BATCH PROCESSING: Load metadata files with frame time management
+        var allMetadataFiles = new List<string>();
+        
+        // Collect all metadata files first (this is fast)
         try
         {
-            dataRoot = Path.Combine(Application.persistentDataPath, "Data");
-            Debug.Log($"[METADATA] Loading assets from metadata files in: {dataRoot}");
-            Debug.Log($"[METADATA] Application.persistentDataPath = {Application.persistentDataPath}");
-            
-            // Log what's actually in the persistentDataPath
-            if (Directory.Exists(Application.persistentDataPath))
+            foreach (var categoryDir in Directory.GetDirectories(dataRoot))
             {
-                var allDirs = Directory.GetDirectories(Application.persistentDataPath);
-                var allFiles = Directory.GetFiles(Application.persistentDataPath);
-                Debug.Log($"[METADATA] persistentDataPath contents: Dirs=[{string.Join(", ", allDirs.Select(Path.GetFileName))}], Files=[{string.Join(", ", allFiles.Select(Path.GetFileName))}]");
+                var txtFiles = Directory.GetFiles(categoryDir, "*.txt")
+                    .Where(f => {
+                        string name = Path.GetFileNameWithoutExtension(f).ToLower();
+                        return !name.StartsWith("files") && !name.StartsWith("home");
+                    })
+                    .ToArray();
+                
+                allMetadataFiles.AddRange(txtFiles);
             }
         }
         catch (Exception e)
         {
-            Debug.LogError($"[METADATA] Exception creating dataRoot path: {e.Message}");
-            Debug.LogError($"[METADATA] Exception stack trace: {e.StackTrace}");
+            Debug.LogError($"[METADATA] Error collecting metadata files: {e.Message}");
         }
+
+        Debug.Log($"[METADATA] Found {allMetadataFiles.Count} metadata files to process");
+        yield return null; // Frame break after collection
+
+        // 🚀 FRAME-BUDGET PROCESSING: Process files with strict frame time limits
+        const float maxFrameTime = 0.008f; // 8ms budget for ultra-smooth loading
+        const int minBatchSize = 1; // Minimum files per frame
+        const int maxBatchSize = 5; // Maximum files per frame
         
-        if (dataRoot != null && Directory.Exists(dataRoot))
+        int processedCount = 0;
+        float frameStartTime;
+        
+        for (int i = 0; i < allMetadataFiles.Count; i += maxBatchSize)
         {
-            Debug.Log($"[METADATA] Data directory exists, scanning for categories...");
-            var categoryDirs = Directory.GetDirectories(dataRoot);
-            Debug.Log($"[METADATA] Found {categoryDirs.Length} category directories: [{string.Join(", ", categoryDirs.Select(Path.GetFileName))}]");
+            frameStartTime = Time.realtimeSinceStartup;
+            int batchSize = 0;
             
-            int processedItems = 0;
-
-            foreach (var categoryDir in categoryDirs)
+            // Process files within frame budget
+            for (int j = i; j < allMetadataFiles.Count && j < i + maxBatchSize; j++)
             {
-                string category = Path.GetFileName(categoryDir);
-                Debug.Log($"[METADATA] Processing category directory: {categoryDir}");
-                Debug.Log($"[METADATA] Category name: {category}");
-                
-                if (!Directory.Exists(categoryDir))
+                // Check frame time before processing each file
+                if (batchSize >= minBatchSize && (Time.realtimeSinceStartup - frameStartTime) > maxFrameTime)
                 {
-                    Debug.LogWarning($"[METADATA] Category directory does not exist: {categoryDir}");
-                    continue;
+                    break; // Frame budget exceeded, yield
                 }
                 
-                // Get all .txt files in this category directory and sort them
-                Debug.Log($"[METADATA] Scanning for .txt files in: {categoryDir}");
-                var allFiles = Directory.GetFiles(categoryDir);
-                Debug.Log($"[METADATA] All files in {category}: {string.Join(", ", allFiles.Select(Path.GetFileName))}");
+                try
+                {
+                    var elementData = ParseMetadataFile(allMetadataFiles[j]);
+                    if (elementData != null)
+                    {
+                        loadedElements.Add(elementData);
+                        processedCount++;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[METADATA] Error processing {allMetadataFiles[j]}: {e.Message}");
+                }
                 
-                var txtFiles = allFiles
-                    .Where(f => {
-                        string ext = Path.GetExtension(f).ToLower();
-                        string name = Path.GetFileName(f).ToLower();
-                        bool isTxt = ext == ".txt";
-                        bool notFilesFile = !name.StartsWith("files");
-                        bool notHomeFile = !name.StartsWith("home");
-                        Debug.Log($"[METADATA] File {Path.GetFileName(f)}: isTxt={isTxt}, notFilesFile={notFilesFile}, notHomeFile={notHomeFile}");
-                        return isTxt && notFilesFile && notHomeFile;
-                    })
-                    .OrderBy(f => Path.GetFileNameWithoutExtension(f)) // Sort by filename
-                    .ToList();
-
-                Debug.Log($"[METADATA] Found {txtFiles.Count} valid metadata files in {category}");
-                foreach (var file in txtFiles)
-                {
-                    Debug.Log($"[METADATA] Will process: {Path.GetFileName(file)}");
-                }
-
-                foreach (var txtFile in txtFiles)
-                {
-                    try
-                    {
-                        Debug.Log($"[METADATA] Processing file: {txtFile}");
-                        
-                        // Parse metadata file directly into HKCarouselElementData
-                        var elementData = ParseMetadataFile(txtFile);
-                        
-                        if (elementData != null)
-                        {
-                            // Log what we parsed
-                            Debug.Log($"[METADATA] Successfully loaded: {elementData.Name} (Category: {elementData.Category}, Type: {(elementData.IsImage360 ? "Image" : "Video")})");
-                            
-                            loadedElements.Add(elementData);
-                        }
-                        else
-                        {
-                            Debug.LogWarning($"[METADATA] Failed to parse metadata file: {txtFile}");
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.LogError($"[METADATA] Error processing metadata file {txtFile}: {e.Message}");
-                        Debug.LogError($"[METADATA] Exception stack trace: {e.StackTrace}");
-                    }
-
-                    processedItems++;
-                    if (processedItems % BATCH_SIZE == 0)
-                    {
-                        yield return null; // Yield control to avoid freezing
-                    }
-                }
+                batchSize++;
             }
-        }
-        else
-        {
-            Debug.LogWarning($"[METADATA] Data directory not found: {dataRoot}");
             
-            // Try to list what's actually in persistentDataPath
-            try
-            {
-                if (Directory.Exists(Application.persistentDataPath))
-                {
-                    var topLevelDirs = Directory.GetDirectories(Application.persistentDataPath);
-                    var topLevelFiles = Directory.GetFiles(Application.persistentDataPath);
-                    Debug.Log($"[METADATA] Contents of persistentDataPath: Dirs=[{string.Join(", ", topLevelDirs.Select(Path.GetFileName))}], Files=[{string.Join(", ", topLevelFiles.Select(Path.GetFileName))}]");
-                }
-                else
-                {
-                    Debug.LogError($"[METADATA] persistentDataPath does not exist: {Application.persistentDataPath}");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[METADATA] Error listing persistentDataPath contents: {e.Message}");
-            }
+            // Update progress and yield every batch
+            float progress = (float)processedCount / allMetadataFiles.Count;
+            Debug.Log($"[METADATA] 🚀 Processed {processedCount}/{allMetadataFiles.Count} files ({progress:P0})");
+            
+            yield return null; // Frame break between batches
         }
 
-        if (loadedElements.Count == 1) // Only Home card
-        {
-            Debug.LogWarning("No content found in persistent data path!");
-        }
-
-        Debug.Log($"[METADATA] Total elements loaded: {loadedElements.Count}");
+        Debug.Log($"[METADATA] 🚀 ULTRA-FAST loading completed: {loadedElements.Count} total elements");
         
         cachedElements = loadedElements;
         ApplyElementsToCarousel(loadedElements);
     }
 
     /// <summary>
-    /// Parses a metadata .txt file and returns HKCarouselElementData
-    /// NO MEDIA PATHS ARE STORED - only metadata for on-demand loading!
+    /// 🚀 ULTRA-FAST METADATA PARSING: NO blocking file operations during initialization
+    /// Thumbnail paths are resolved lazily when actually needed
     /// </summary>
     private HKCarouselElementData ParseMetadataFile(string filePath)
     {
@@ -1647,7 +1614,7 @@ public class XR360CarouselController : MonoBehaviour
             Name = Path.GetFileNameWithoutExtension(filePath),
             Category = Path.GetFileName(Path.GetDirectoryName(filePath)),
             VideoPath = null, // ✅ NO PRE-LOADING: Path resolved dynamically when needed
-            ThumbnailPath = ResolveThumbnailPath(Path.GetFileNameWithoutExtension(filePath), Path.GetFileName(Path.GetDirectoryName(filePath))) // ✅ RESOLVE NOW: Thumbnails load with carousel
+            ThumbnailPath = null // 🚀 OPTIMIZED: NO immediate resolution - will be resolved lazily by CarouselElementDemo
         };
 
         try
@@ -1671,30 +1638,25 @@ public class XR360CarouselController : MonoBehaviour
                 switch (key.ToLower())
                 {
                     case "type":
-                        bool isImage = value.Trim().ToLower() == "image";
-                        data.IsImage360 = isImage;
-                        Debug.Log($"[METADATA] {data.Name}: Type = {(isImage ? "IMAGE" : "VIDEO")} (on-demand loading)");
+                        data.IsImage360 = string.Equals(value.Trim(), "image", StringComparison.OrdinalIgnoreCase);
                         break;
                     case "audio":
                         audioPath = value;
-                        Debug.Log($"[METADATA] {data.Name}: Audio = {audioPath} (will load when triggered)");
                         break;
                     case "description":
                         description = value;
-                        Debug.Log($"[METADATA] {data.Name}: Description = {description}");
                         break;
                 }
             }
-            
-            Debug.Log($"[METADATA] ✅ Parsed metadata for '{data.Name}' - NO media pre-loaded, will resolve on trigger");
+
+            Debug.Log($"[METADATA] 🚀 Fast-parsed: {data.Name} (Category: {data.Category}, Type: {(data.IsImage360 ? "Image" : "Video")})");
+            return data;
         }
         catch (Exception e)
         {
-            Debug.LogError($"[METADATA] Error parsing file {filePath}: {e.Message}");
+            Debug.LogError($"[METADATA] Error parsing {filePath}: {e.Message}");
             return null;
         }
-
-        return data;
     }
 
     /// <summary>
@@ -1859,7 +1821,7 @@ public class XR360CarouselController : MonoBehaviour
     {
         if (carousel360 == null) return;
 
-        Debug.Log($"[XR360CarouselController] Applying {elements.Count} elements to carousel");
+        Debug.Log($"[XR360CarouselController] 🚀 Applying {elements.Count} elements to carousel with ULTRA-FAST setup");
 
         var carouselType = typeof(HKCarouselLayoutGroup3D<HKCarouselElementData>);
         var elementsField = carouselType.GetField("_carouselElements", 
@@ -1870,13 +1832,13 @@ public class XR360CarouselController : MonoBehaviour
         if (elementsField != null)
         {
             elementsField.SetValue(carousel360, elements);
-            Debug.Log($"[XR360CarouselController] Set {elements.Count} elements on carousel");
+            Debug.Log($"[XR360CarouselController] ✅ Set {elements.Count} elements on carousel");
 
             if (elements.Count > 0 && defaultIndexField != null)
             {
                 int middleIndex = Mathf.FloorToInt(elements.Count / 2f);
                 defaultIndexField.SetValue(carousel360, middleIndex);
-                Debug.Log($"[XR360CarouselController] Set default index to {middleIndex}");
+                Debug.Log($"[XR360CarouselController] ✅ Set default index to {middleIndex}");
             }
 
             // Trigger CreatePool if it hasn't been created yet
@@ -1887,18 +1849,14 @@ public class XR360CarouselController : MonoBehaviour
                 bool poolCreated = (bool)poolCreatedField.GetValue(carousel360);
                 if (!poolCreated)
                 {
-                    Debug.Log("[XR360CarouselController] Pool not created yet, triggering CreatePool...");
+                    Debug.Log("[XR360CarouselController] 🚀 Creating carousel pool...");
                     var createPoolMethod = carouselType.GetMethod("CreatePool", 
                         System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     if (createPoolMethod != null)
                     {
                         createPoolMethod.Invoke(carousel360, null);
-                        Debug.Log("[XR360CarouselController] CreatePool called successfully");
+                        Debug.Log("[XR360CarouselController] ✅ Carousel pool created");
                     }
-                }
-                else
-                {
-                    Debug.Log("[XR360CarouselController] Pool already created, refreshing...");
                 }
             }
 
@@ -1911,14 +1869,82 @@ public class XR360CarouselController : MonoBehaviour
             {
                 refreshMethod.Invoke(carousel360, null);
                 updateMethod.Invoke(carousel360, null);
-                Debug.Log("[XR360CarouselController] Carousel refreshed and updated");
+                Debug.Log("[XR360CarouselController] ✅ Carousel refreshed and updated");
             }
 
-            // 🎯 SMART LOADING: Initialize smart thumbnail loading after carousel is set up
-            Debug.Log("[XR360CarouselController] Initializing smart thumbnail loading...");
+            // 🚀 ULTRA-FAST THUMBNAIL SYSTEM: Initialize optimized loading
+            Debug.Log("[XR360CarouselController] 🚀 Initializing ULTRA-FAST thumbnail loading...");
             CarouselElementDemo.InitializeSmartLoading(carousel360);
-            Debug.Log("[XR360CarouselController] Smart thumbnail loading initialized");
+            
+            // 🚀 BACKGROUND OPTIMIZATION: Pre-scan thumbnail directories in background
+            StartCoroutine(PreScanThumbnailDirectories());
+            
+            Debug.Log("[XR360CarouselController] 🎉 ULTRA-FAST carousel setup completed!");
         }
+    }
+
+    /// <summary>
+    /// 🚀 BACKGROUND OPTIMIZATION: Pre-scan thumbnail directories for faster future access
+    /// </summary>
+    private IEnumerator PreScanThumbnailDirectories()
+    {
+        // Wait a bit to let carousel finish setup
+        yield return new WaitForSeconds(2f);
+        
+        Debug.Log("[THUMBNAIL_PRESCAN] 🔍 Starting background thumbnail directory scan...");
+        
+        string thumbnailBasePath = Path.Combine(Application.persistentDataPath, "Thumbnails");
+        
+        if (!Directory.Exists(thumbnailBasePath))
+        {
+            Debug.Log("[THUMBNAIL_PRESCAN] 📁 No thumbnails directory found");
+            yield break;
+        }
+        
+        // Pre-scan directories on background thread to warm up file system cache
+        bool scanComplete = false;
+        int totalDirectories = 0;
+        int scannedDirectories = 0;
+        
+        System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                var categoryDirs = Directory.GetDirectories(thumbnailBasePath);
+                totalDirectories = categoryDirs.Length;
+                
+                foreach (var categoryDir in categoryDirs)
+                {
+                    // Pre-scan each category directory
+                    var files = Directory.GetFiles(categoryDir, "*.png");
+                    var jpgFiles = Directory.GetFiles(categoryDir, "*.jpg");
+                    
+                    string categoryName = Path.GetFileName(categoryDir);
+                    Debug.Log($"[THUMBNAIL_PRESCAN] 📂 {categoryName}: {files.Length + jpgFiles.Length} thumbnails");
+                    
+                    scannedDirectories++;
+                    
+                    // Small delay to prevent overwhelming the file system
+                    System.Threading.Thread.Sleep(50);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[THUMBNAIL_PRESCAN] Error during background scan: {ex.Message}");
+            }
+            finally
+            {
+                scanComplete = true;
+            }
+        });
+        
+        // Wait for background scan to complete
+        while (!scanComplete)
+        {
+            yield return new WaitForSeconds(0.5f);
+        }
+        
+        Debug.Log($"[THUMBNAIL_PRESCAN] ✅ Background scan completed: {scannedDirectories}/{totalDirectories} directories");
     }
 
     private IEnumerator LoadSceneAsync(int sceneIndex)

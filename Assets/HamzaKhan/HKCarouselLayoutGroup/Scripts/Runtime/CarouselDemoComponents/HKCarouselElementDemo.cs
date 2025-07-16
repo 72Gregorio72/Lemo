@@ -27,17 +27,41 @@ namespace HKCarouselLayoutGroup
 
         private int id;
 
-        // 🎯 SMART LOADING: Only load visible thumbnails (center + neighbors)
+        // 🚀 ULTRA OPTIMIZED LOADING SYSTEM
         private static Dictionary<int, CarouselElementDemo> allElements = new Dictionary<int, CarouselElementDemo>();
         private static HashSet<int> loadedThumbnails = new HashSet<int>();
-        private static int currentCenterIndex = -1;
-        private static bool isUpdatingThumbnails = false;
+        private static Dictionary<string, Texture2D> textureCache = new Dictionary<string, Texture2D>();
+        private static Queue<ThumbnailLoadJob> loadQueue = new Queue<ThumbnailLoadJob>();
+        private static bool isProcessingQueue = false;
+        private static int maxConcurrentLoads = 2;
+        private static int currentConcurrentLoads = 0;
         
-        // 🚀 PERFORMANCE: Debouncing and async loading to prevent frame drops
-        private static Coroutine debounceCoroutine;
+        // 🚀 PERFORMANCE SETTINGS
         private static MonoBehaviour staticCoroutineRunner;
-        private static float debounceDelay = 0.5f; // Increased to 500ms - wait longer before loading
-        private static bool isCurrentlyLoading = false; // Prevent overlapping loads
+        private static float debounceDelay = 0.1f; // Very fast response
+        private static Coroutine debounceCoroutine;
+        private static bool isCurrentlyLoading = false;
+        private const int MAX_THUMBNAIL_SIZE = 256;
+
+        // 🚀 FRAME BUDGET SYSTEM
+        private static float frameStartTime;
+        private static float maxFrameTime = 0.012f; // 12ms budget for 60fps with headroom
+
+        private class ThumbnailLoadJob
+        {
+            public string filePath;
+            public CarouselElementDemo element;
+            public int priority;
+            public bool isUrgent;
+            
+            public ThumbnailLoadJob(string path, CarouselElementDemo elem, int prio, bool urgent)
+            {
+                filePath = path;
+                element = elem;
+                priority = prio;
+                isUrgent = urgent;
+            }
+        }
 
         [System.Serializable]
         private class RatingDataWrapper
@@ -75,228 +99,502 @@ namespace HKCarouselLayoutGroup
         public void ConfigureElement(HKCarouselElementData data, int index)
         {
             id = index;
-            thumbnailPath = data.ThumbnailPath; // Store for smart loading
+            
+            // 🚀 LAZY THUMBNAIL RESOLUTION: Build thumbnail path dynamically (no file I/O during init)
+            if (string.IsNullOrEmpty(data.ThumbnailPath))
+            {
+                // Construct thumbnail path without file system checks
+                thumbnailPath = BuildThumbnailPath(data.Name, data.Category);
+            }
+            else
+            {
+                thumbnailPath = data.ThumbnailPath;
+            }
 
             if (nameText != null) nameText.text = data.Name;
             if (categoryText != null) categoryText.text = data.Category ?? "UNKNOWN";
 
-            // 🎯 SMART LOADING: Register element and load only if visible
+            // Register element for optimized loading
             allElements[index] = this;
-            Debug.Log($"[SMART_LOAD] 📋 Registered element {index}: {data.Name}");
 
+            // 🚀 ULTRA-FAST SETUP: Defer rating and description loading to avoid blocking carousel creation
+            StartCoroutine(LoadAdditionalDataDeferred());
+        }
+
+        /// <summary>
+        /// 🚀 DEFERRED LOADING: Load rating and description data after carousel setup is complete
+        /// </summary>
+        private IEnumerator LoadAdditionalDataDeferred()
+        {
+            // Wait for carousel to finish initial setup
+            yield return new WaitForSeconds(0.5f);
+            
+            // Load additional data without blocking
             LoadRatingDataFromNameText();
+            
+            // Small delay between operations
+            yield return new WaitForEndOfFrame();
+            
             LoadDescriptionFromDataFile();
         }
 
-        private string thumbnailPath; // Store thumbnail path for smart loading
+        /// <summary>
+        /// 🚀 LAZY PATH BUILDING: Construct thumbnail path without file system access
+        /// </summary>
+        private string BuildThumbnailPath(string elementName, string category)
+        {
+            // Build path based on expected structure - no file existence check
+            return Path.Combine(Application.persistentDataPath, "Thumbnails", category, elementName + ".png");
+        }
 
         /// <summary>
-        /// 🚀 PERSISTENT SCROLLING: Call this when carousel selection changes to load missing thumbnails
-        /// Uses debouncing to prevent frame drops during rapid scrolling
-        /// Works together with progressive loading - only loads missing thumbnails (no unloading)
-        /// All thumbnails remain in memory once loaded for instant browsing
+        /// 🚀 ASYNC THUMBNAIL PATH RESOLUTION: Verify thumbnail exists and find alternatives
+        /// </summary>
+        private static IEnumerator ResolveThumbnailPathAsync(string elementName, string category, System.Action<string> onComplete)
+        {
+            string[] extensions = { ".png", ".jpg" };
+            string thumbnailBasePath = Path.Combine(Application.persistentDataPath, "Thumbnails");
+            string categoryPath = Path.Combine(thumbnailBasePath, category);
+            
+            // Check if we can resolve this on a background thread
+            bool pathResolved = false;
+            string resolvedPath = null;
+            
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    if (Directory.Exists(categoryPath))
+                    {
+                        foreach (string ext in extensions)
+                        {
+                            string fullPath = Path.Combine(categoryPath, elementName + ext);
+                            if (File.Exists(fullPath))
+                            {
+                                resolvedPath = fullPath;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[THUMBNAIL_RESOLVE] Error resolving path for {elementName}: {ex.Message}");
+                }
+                finally
+                {
+                    pathResolved = true;
+                }
+            });
+            
+            // Wait for background resolution
+            while (!pathResolved)
+            {
+                yield return null;
+            }
+            
+            onComplete?.Invoke(resolvedPath);
+        }
+
+        private string thumbnailPath;
+
+        /// <summary>
+        /// 🚀 ULTRA FAST LOADING: Optimized thumbnail loading system
         /// </summary>
         public static void UpdateVisibleThumbnails(int centerIndex, int totalElements)
         {
-            // 🚀 DEBOUNCING: Cancel previous loading and wait before starting new one
+            // Cancel previous debounce
             if (staticCoroutineRunner != null && debounceCoroutine != null)
             {
                 staticCoroutineRunner.StopCoroutine(debounceCoroutine);
             }
 
-            // Start debounced loading (will only load missing thumbnails)
             if (staticCoroutineRunner != null)
             {
                 debounceCoroutine = staticCoroutineRunner.StartCoroutine(DebouncedThumbnailUpdate(centerIndex, totalElements));
             }
         }
 
-        /// <summary>
-        /// 🚀 DEBOUNCED LOADING: Wait before updating thumbnails to prevent frame drops
-        /// </summary>
         private static IEnumerator DebouncedThumbnailUpdate(int centerIndex, int totalElements)
         {
-            Debug.Log($"[SMART_LOAD] 🚀 Debouncing thumbnail update for center index: {centerIndex}");
-            
-            // 🚀 PREVENT OVERLAPPING: Don't start if already loading
-            if (isCurrentlyLoading || isUpdatingThumbnails)
+            if (isCurrentlyLoading)
             {
-                Debug.Log($"[SMART_LOAD] ⏸️ Skipping update - already loading");
                 yield break;
             }
             
-            // Wait for user to stop scrolling rapidly
             yield return new WaitForSeconds(debounceDelay);
             
-            // 🚀 DOUBLE CHECK: Still not loading after delay?
-            if (isCurrentlyLoading || isUpdatingThumbnails) yield break;
+            if (isCurrentlyLoading) yield break;
             
             isCurrentlyLoading = true;
-            isUpdatingThumbnails = true;
 
-            Debug.Log($"[SMART_LOAD] 🎯 Executing debounced thumbnail update for center index: {centerIndex}");
-
-            // 🎯 PERSISTENT THUMBNAILS: Keep all loaded thumbnails in memory (no unloading)
-            Debug.Log($"[SMART_LOAD] 💾 Keeping all {loadedThumbnails.Count} loaded thumbnails persistent");
-
-            // 🚀 PRIORITY LOADING: Load immediate neighbors if not already loaded by progressive system
-            HashSet<int> priorityIndices = new HashSet<int>();
+            // 🚀 PRIORITY LOADING: Load only center + immediate neighbors
+            var urgentJobs = new List<ThumbnailLoadJob>();
+            
             for (int offset = -1; offset <= 1; offset++)
             {
                 int targetIndex = centerIndex + offset;
-                // Handle wrapping for circular carousel
                 if (targetIndex < 0) targetIndex = totalElements - 1;
                 if (targetIndex >= totalElements) targetIndex = 0;
-                priorityIndices.Add(targetIndex);
-            }
-
-            Debug.Log($"[SMART_LOAD] Checking priority indices: [{string.Join(", ", priorityIndices)}] (center + neighbors)");
-
-            // Load any missing priority thumbnails (center + immediate neighbors)
-            foreach (int priorityIndex in priorityIndices)
-            {
-                if (!loadedThumbnails.Contains(priorityIndex) && allElements.TryGetValue(priorityIndex, out CarouselElementDemo element))
+                
+                if (allElements.TryGetValue(targetIndex, out CarouselElementDemo element))
                 {
-                    if (!string.IsNullOrEmpty(element.thumbnailPath))
+                    if (!string.IsNullOrEmpty(element.thumbnailPath) && !loadedThumbnails.Contains(targetIndex))
                     {
-                        element.StartCoroutine(element.LoadThumbnailOptimizedAsync(element.thumbnailPath));
-                        loadedThumbnails.Add(priorityIndex);
-                        Debug.Log($"[SMART_LOAD] 📸 Loading missing priority thumbnail for index {priorityIndex}");
+                        int priority = (offset == 0) ? 1 : 2;
+                        bool isUrgent = (offset == 0); // Only center is urgent
+                        urgentJobs.Add(new ThumbnailLoadJob(element.thumbnailPath, element, priority, isUrgent));
+                        loadedThumbnails.Add(targetIndex);
                     }
                 }
-                else if (loadedThumbnails.Contains(priorityIndex))
-                {
-                    Debug.Log($"[SMART_LOAD] ✅ Priority thumbnail for index {priorityIndex} already loaded");
-                }
-                // 🚀 ULTRA SMOOTH: Multiple frame breaks between each operation
-                yield return null;
-                yield return null;
             }
 
-            currentCenterIndex = centerIndex;
-            isUpdatingThumbnails = false;
-            isCurrentlyLoading = false; // 🚀 RESET LOADING FLAG
-            
-            Debug.Log($"[SMART_LOAD] ✅ Debounced thumbnail update completed for center index: {centerIndex}");
+            // 🚀 IMMEDIATE PROCESSING: Process urgent jobs right away
+            foreach (var job in urgentJobs)
+            {
+                if (job.isUrgent)
+                {
+                    yield return staticCoroutineRunner.StartCoroutine(ProcessThumbnailJob(job));
+                }
+                else
+                {
+                    QueueThumbnailJob(job);
+                }
+            }
+
+            isCurrentlyLoading = false;
         }
 
         /// <summary>
-        /// 💾 PERSISTENT THUMBNAILS: Thumbnails remain loaded once created (no unloading)
-        /// This method removed as we now keep all thumbnails in memory permanently
+        /// 🚀 JOB QUEUE SYSTEM: Add thumbnail job to queue
         /// </summary>
-        // private void UnloadThumbnail() - REMOVED: Thumbnails are now persistent
+        private static void QueueThumbnailJob(ThumbnailLoadJob job)
+        {
+            loadQueue.Enqueue(job);
+            
+            if (!isProcessingQueue)
+            {
+                staticCoroutineRunner.StartCoroutine(ProcessLoadQueue());
+            }
+        }
 
         /// <summary>
-        /// 🎯 SMART LOADING: Initialize smart thumbnail loading system
-        /// Call this once after all carousel elements are configured
+        /// 🚀 QUEUE PROCESSOR: Process thumbnail jobs with frame budget
+        /// </summary>
+        private static IEnumerator ProcessLoadQueue()
+        {
+            isProcessingQueue = true;
+            
+            while (loadQueue.Count > 0)
+            {
+                frameStartTime = Time.realtimeSinceStartup;
+                
+                // Process jobs within frame budget
+                while (loadQueue.Count > 0 && currentConcurrentLoads < maxConcurrentLoads)
+                {
+                    if ((Time.realtimeSinceStartup - frameStartTime) > maxFrameTime)
+                    {
+                        yield return null; // Frame break
+                        frameStartTime = Time.realtimeSinceStartup;
+                    }
+                    
+                    var job = loadQueue.Dequeue();
+                    staticCoroutineRunner.StartCoroutine(ProcessThumbnailJob(job));
+                    currentConcurrentLoads++;
+                }
+                
+                yield return null; // Frame break between batches
+            }
+            
+            isProcessingQueue = false;
+        }
+
+        /// <summary>
+        /// 🚀 ULTRA-OPTIMIZED THUMBNAIL PROCESSING: Enhanced with async path resolution
+        /// </summary>
+        private static IEnumerator ProcessThumbnailJob(ThumbnailLoadJob job)
+        {
+            // Check cache first
+            if (textureCache.ContainsKey(job.filePath))
+            {
+                job.element.ApplyThumbnail(textureCache[job.filePath]);
+                currentConcurrentLoads--;
+                yield break;
+            }
+
+            // 🚀 ASYNC PATH VERIFICATION: Verify thumbnail path exists or find alternative
+            bool pathVerified = false;
+            string verifiedPath = job.filePath;
+            
+            // Extract element info for path resolution
+            string elementName = Path.GetFileNameWithoutExtension(job.filePath);
+            string category = job.element.categoryText?.text ?? "Unknown";
+            
+            // Quick existence check first
+            if (!File.Exists(job.filePath))
+            {
+                // Try async path resolution if direct path fails
+                yield return staticCoroutineRunner.StartCoroutine(ResolveThumbnailPathAsync(elementName, category, (resolvedPath) =>
+                {
+                    verifiedPath = resolvedPath;
+                    pathVerified = true;
+                }));
+                
+                if (string.IsNullOrEmpty(verifiedPath))
+                {
+                    Debug.LogWarning($"[OPTIMIZED_THUMB] 📸 Could not find thumbnail for {elementName} in {category}");
+                    currentConcurrentLoads--;
+                    yield break;
+                }
+            }
+            else
+            {
+                pathVerified = true;
+            }
+
+            // 🚀 ASYNC FILE LOADING: Load file without blocking
+            var loadFileCoroutine = LoadFileAsync(verifiedPath);
+            yield return staticCoroutineRunner.StartCoroutine(loadFileCoroutine);
+            
+            if (loadFileCoroutine.Current == null)
+            {
+                currentConcurrentLoads--;
+                yield break;
+            }
+
+            byte[] fileData = (byte[])loadFileCoroutine.Current;
+            yield return null; // Frame break after file load
+
+            // 🚀 TEXTURE CREATION: Create texture with error handling
+            Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!texture.LoadImage(fileData))
+            {
+                DestroyImmediate(texture);
+                currentConcurrentLoads--;
+                yield break;
+            }
+
+            yield return null; // Frame break after image load
+
+            // 🚀 RESIZE IF NEEDED: Optimize memory usage
+            if (texture.width > MAX_THUMBNAIL_SIZE || texture.height > MAX_THUMBNAIL_SIZE)
+            {
+                var resizedTexture = ResizeTexture(texture, MAX_THUMBNAIL_SIZE);
+                DestroyImmediate(texture);
+                texture = resizedTexture;
+                yield return null; // Frame break after resize
+            }
+
+            // 🚀 APPLY SETTINGS: Optimize texture settings
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.Apply();
+
+            // 🚀 CACHE TEXTURE: Store in cache for reuse (use verified path as key)
+            textureCache[verifiedPath] = texture;
+            
+            // Also cache with original path if different
+            if (verifiedPath != job.filePath)
+            {
+                textureCache[job.filePath] = texture;
+            }
+
+            // 🚀 APPLY TO UI: Set the thumbnail
+            job.element.ApplyThumbnail(texture);
+
+            currentConcurrentLoads--;
+            yield return null; // Final frame break
+        }
+
+        /// <summary>
+        /// 🚀 ASYNC FILE LOADER: Load file data without blocking main thread
+        /// </summary>
+        private static IEnumerator LoadFileAsync(string filePath)
+        {
+            byte[] fileData = null;
+            bool isLoading = true;
+            
+            // Start file loading on background thread
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    fileData = File.ReadAllBytes(filePath);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[OPTIMIZED_THUMB] Error loading file {filePath}: {ex.Message}");
+                }
+                finally
+                {
+                    isLoading = false;
+                }
+            });
+            
+            // Wait for file loading to complete
+            while (isLoading)
+            {
+                yield return null;
+            }
+            
+            yield return fileData;
+        }
+
+        /// <summary>
+        /// 🚀 TEXTURE RESIZER: Efficient texture resizing
+        /// </summary>
+        private static Texture2D ResizeTexture(Texture2D original, int maxSize)
+        {
+            // Calculate new dimensions
+            float aspectRatio = (float)original.width / original.height;
+            int newWidth, newHeight;
+            
+            if (aspectRatio > 1.0f)
+            {
+                newWidth = maxSize;
+                newHeight = Mathf.RoundToInt(maxSize / aspectRatio);
+            }
+            else
+            {
+                newWidth = Mathf.RoundToInt(maxSize * aspectRatio);
+                newHeight = maxSize;
+            }
+            
+            // Create resized texture using RenderTexture for quality
+            var resized = new Texture2D(newWidth, newHeight, TextureFormat.RGBA32, false);
+            RenderTexture rt = RenderTexture.GetTemporary(newWidth, newHeight);
+            
+            Graphics.Blit(original, rt);
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = rt;
+            
+            resized.ReadPixels(new Rect(0, 0, newWidth, newHeight), 0, 0);
+            resized.Apply();
+            
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(rt);
+            
+            return resized;
+        }
+
+        /// <summary>
+        /// 🚀 APPLY THUMBNAIL: Set thumbnail sprite efficiently
+        /// </summary>
+        private void ApplyThumbnail(Texture2D texture)
+        {
+            if (texture == null || thumbnailImage == null) return;
+            
+            // Clean up old sprite
+            if (thumbnailImage.sprite != null)
+            {
+                DestroyImmediate(thumbnailImage.sprite);
+            }
+            
+            // Create and apply new sprite
+            thumbnailImage.sprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f)
+            );
+        }
+
+        /// <summary>
+        /// 🚀 INITIALIZE OPTIMIZED LOADING: Start the optimized system
         /// </summary>
         public static void InitializeSmartLoading(HKCarouselLayoutGroup3D<HKCarouselElementData> carousel)
         {
             if (carousel == null) return;
 
-            Debug.Log($"[SMART_LOAD] 🚀 Initializing smart loading for {allElements.Count} elements");
-
-            // Set up coroutine runner for debouncing
             staticCoroutineRunner = carousel;
             
-            // Subscribe to carousel selection changes
-            carousel.OnValueChanged.RemoveAllListeners(); // Clear any existing listeners
+            // Subscribe to carousel changes
+            carousel.OnValueChanged.RemoveAllListeners();
             carousel.OnValueChanged.AddListener(OnCarouselSelectionChanged);
 
-            // 🎯 PROGRESSIVE LOADING: Start loading from center and expand outward
+            // 🚀 START PROGRESSIVE LOADING: Load from center outward
             int currentIndex = carousel.GetTrueSelectedIndex();
             int totalElements = allElements.Count;
             
-            Debug.Log($"[SMART_LOAD] Starting progressive loading from center index: {currentIndex}, total elements: {totalElements}");
-            
             if (totalElements > 0)
             {
-                // Start progressive loading from center outward
                 staticCoroutineRunner.StartCoroutine(ProgressiveLoadAllThumbnails(currentIndex, totalElements));
             }
         }
 
         /// <summary>
-        /// 🎯 PROGRESSIVE LOADING: Load thumbnails from center outward for smooth startup with full coverage
-        /// Priority: Center first, then adjacent (-1,+1), then next ring (-2,+2), etc.
+        /// 🚀 PROGRESSIVE LOADING: Load thumbnails efficiently from center outward
         /// </summary>
         private static IEnumerator ProgressiveLoadAllThumbnails(int centerIndex, int totalElements)
         {
-            Debug.Log($"[PROGRESSIVE] 🎯 Starting progressive loading from center {centerIndex}");
+            var loadedIndices = new HashSet<int>();
             
-            // Track what we've loaded to avoid duplicates
-            HashSet<int> alreadyLoaded = new HashSet<int>();
+            // 🚀 PRIORITY 1: Load center immediately
+            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnailImmediate(centerIndex, loadedIndices));
             
-            // 🎯 PRIORITY 1: Load center immediately (most important)
-            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnail(centerIndex, totalElements, alreadyLoaded, "CENTER"));
+            // 🚀 PRIORITY 2: Load immediate neighbors
+            yield return new WaitForSeconds(0.1f);
+            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnailImmediate(GetWrappedIndex(centerIndex - 1, totalElements), loadedIndices));
+            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnailImmediate(GetWrappedIndex(centerIndex + 1, totalElements), loadedIndices));
             
-            // 🎯 PRIORITY 2: Load immediate neighbors (-1, +1)
-            yield return new WaitForSeconds(0.3f); // Short delay before neighbors
-            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnail(GetWrappedIndex(centerIndex - 1, totalElements), totalElements, alreadyLoaded, "LEFT"));
-            yield return new WaitForSeconds(0.2f);
-            yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnail(GetWrappedIndex(centerIndex + 1, totalElements), totalElements, alreadyLoaded, "RIGHT"));
-            
-            // 🎯 PRIORITY 3+: Load remaining thumbnails in expanding rings
+            // 🚀 PRIORITY 3+: Load remaining thumbnails in background
             int maxRadius = Mathf.CeilToInt(totalElements / 2f);
             
             for (int radius = 2; radius <= maxRadius; radius++)
             {
-                yield return new WaitForSeconds(0.4f); // Longer delay for non-priority thumbnails
+                yield return new WaitForSeconds(0.2f);
                 
-                Debug.Log($"[PROGRESSIVE] 📍 Loading ring {radius} around center {centerIndex}");
-                
-                // Load left side of ring (-radius)
                 int leftIndex = GetWrappedIndex(centerIndex - radius, totalElements);
-                if (!alreadyLoaded.Contains(leftIndex))
-                {
-                    yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnail(leftIndex, totalElements, alreadyLoaded, $"RING-{radius}-LEFT"));
-                    yield return new WaitForSeconds(0.2f);
-                }
-                
-                // Load right side of ring (+radius)
                 int rightIndex = GetWrappedIndex(centerIndex + radius, totalElements);
-                if (!alreadyLoaded.Contains(rightIndex))
+                
+                if (!loadedIndices.Contains(leftIndex))
                 {
-                    yield return staticCoroutineRunner.StartCoroutine(LoadSingleThumbnail(rightIndex, totalElements, alreadyLoaded, $"RING-{radius}-RIGHT"));
-                    yield return new WaitForSeconds(0.2f);
+                    QueueThumbnailForBackground(leftIndex, radius + 5);
                 }
                 
-                // If we've loaded everything, break early
-                if (alreadyLoaded.Count >= totalElements)
+                if (!loadedIndices.Contains(rightIndex))
                 {
-                    break;
+                    QueueThumbnailForBackground(rightIndex, radius + 5);
                 }
+                
+                if (loadedIndices.Count >= totalElements) break;
             }
-            
-            Debug.Log($"[PROGRESSIVE] ✅ Progressive loading completed! Loaded {alreadyLoaded.Count}/{totalElements} thumbnails");
-            Debug.Log($"[PROGRESSIVE] 🎉 All thumbnails are now available for instant browsing!");
         }
 
         /// <summary>
-        /// 🎯 PROGRESSIVE LOADING: Load a single thumbnail with tracking
+        /// 🚀 IMMEDIATE LOADING: Load single thumbnail immediately
         /// </summary>
-        private static IEnumerator LoadSingleThumbnail(int index, int totalElements, HashSet<int> alreadyLoaded, string priority)
+        private static IEnumerator LoadSingleThumbnailImmediate(int index, HashSet<int> loadedIndices)
         {
-            if (alreadyLoaded.Contains(index)) yield break;
+            if (loadedIndices.Contains(index)) yield break;
             
             if (allElements.TryGetValue(index, out CarouselElementDemo element))
             {
                 if (!string.IsNullOrEmpty(element.thumbnailPath))
                 {
-                    Debug.Log($"[PROGRESSIVE] 📸 Loading {priority} thumbnail for index {index}");
-                    element.StartCoroutine(element.LoadThumbnailOptimizedAsync(element.thumbnailPath));
+                    var job = new ThumbnailLoadJob(element.thumbnailPath, element, 1, true);
+                    yield return staticCoroutineRunner.StartCoroutine(ProcessThumbnailJob(job));
                     loadedThumbnails.Add(index);
-                    alreadyLoaded.Add(index);
-                    
-                    // Small delay to let the thumbnail start loading
-                    yield return new WaitForSeconds(0.1f);
+                    loadedIndices.Add(index);
                 }
             }
         }
 
         /// <summary>
-        /// 🎯 PROGRESSIVE LOADING: Handle circular array wrapping
+        /// 🚀 BACKGROUND LOADING: Queue thumbnail for background loading
         /// </summary>
+        private static void QueueThumbnailForBackground(int index, int priority)
+        {
+            if (allElements.TryGetValue(index, out CarouselElementDemo element))
+            {
+                if (!string.IsNullOrEmpty(element.thumbnailPath) && !loadedThumbnails.Contains(index))
+                {
+                    var job = new ThumbnailLoadJob(element.thumbnailPath, element, priority, false);
+                    QueueThumbnailJob(job);
+                    loadedThumbnails.Add(index);
+                }
+            }
+        }
+
         private static int GetWrappedIndex(int index, int totalElements)
         {
             if (index < 0) return totalElements + index;
@@ -304,176 +602,12 @@ namespace HKCarouselLayoutGroup
             return index;
         }
 
-        /// <summary>
-        /// 🔄 SMART SCROLLING: Handle carousel selection changes 
-        /// Works as backup to progressive loading - ensures visible thumbnails are available
-        /// </summary>
         private static void OnCarouselSelectionChanged(int newCenterIndex)
         {
-            Debug.Log($"[SMART_LOAD] 🔄 Carousel selection changed to index: {newCenterIndex}");
-            
             if (allElements.Count > 0)
             {
-                // Check if visible thumbnails need loading (progressive system may have already loaded them)
                 UpdateVisibleThumbnails(newCenterIndex, allElements.Count);
             }
-        }
-
-        /// <summary>
-        /// 🚀 PERFORMANCE OPTIMIZED: Loads thumbnails async with ultra compression to prevent frame drops
-        /// </summary>
-        private IEnumerator LoadThumbnailOptimizedAsync(string thumbnailPath)
-        {
-            const int MAX_THUMBNAIL_SIZE = 256; // Good quality for thumbnails (256x256 max)
-            
-            Debug.Log($"[THUMBNAIL_OPT] 🧠 Loading optimized thumbnail: {Path.GetFileName(thumbnailPath)}");
-            
-            // 🚀 ULTRA SMOOTH: Multiple frame breaks for zero frame drops
-            yield return null;
-            yield return null;
-            
-            // Clean up any existing sprite to free memory
-            if (thumbnailImage.sprite != null)
-            {
-                var oldTexture = thumbnailImage.sprite.texture;
-                DestroyImmediate(thumbnailImage.sprite);
-                if (oldTexture != null) DestroyImmediate(oldTexture);
-            }
-            
-            // 🚀 CLEANUP FRAME BREAK
-            yield return null;
-            
-            byte[] fileData = null;
-            Texture2D originalTexture = null;
-            Texture2D finalTexture = null;
-            
-            // 🚀 FRAME 1: Load file data with error handling
-            try
-            {
-                fileData = File.ReadAllBytes(thumbnailPath);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[THUMBNAIL_OPT] ❌ Error reading thumbnail file {thumbnailPath}: {ex.Message}");
-                yield break;
-            }
-            
-            yield return null; // 🚀 FRAME BREAK 1: Don't block the main thread
-            yield return null; // 🚀 EXTRA FRAME BREAK 1A
-            
-            // 🚀 FRAME 2: Create texture with error handling
-            try
-            {
-                originalTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                if (!originalTexture.LoadImage(fileData))
-                {
-                    Debug.LogWarning($"[THUMBNAIL_OPT] ⚠️ Failed to load thumbnail: {thumbnailPath}");
-                    if (originalTexture != null) DestroyImmediate(originalTexture);
-                    yield break;
-                    }
-                }
-                catch (Exception ex)
-            {
-                Debug.LogError($"[THUMBNAIL_OPT] ❌ Error creating texture for {thumbnailPath}: {ex.Message}");
-                if (originalTexture != null) DestroyImmediate(originalTexture);
-                yield break;
-            }
-            
-            yield return null; // 🚀 FRAME BREAK 2: Don't block the main thread
-            yield return null; // 🚀 EXTRA FRAME BREAK 2A
-            yield return null; // 🚀 EXTRA FRAME BREAK 2B
-            
-            // 🚀 FRAME 3: Resize if too large (memory optimization)
-            bool needsResize = originalTexture.width > MAX_THUMBNAIL_SIZE || originalTexture.height > MAX_THUMBNAIL_SIZE;
-            int newWidth = originalTexture.width;
-            int newHeight = originalTexture.height;
-            
-            if (needsResize)
-            {
-                Debug.Log($"[THUMBNAIL_OPT] 📏 Resizing thumbnail from {originalTexture.width}x{originalTexture.height} to max {MAX_THUMBNAIL_SIZE}");
-                
-                // Calculate new size maintaining aspect ratio
-                float aspectRatio = (float)originalTexture.width / originalTexture.height;
-                if (aspectRatio > 1.0f)
-                {
-                    newWidth = MAX_THUMBNAIL_SIZE;
-                    newHeight = Mathf.RoundToInt(MAX_THUMBNAIL_SIZE / aspectRatio);
-                }
-                else
-                {
-                    newWidth = Mathf.RoundToInt(MAX_THUMBNAIL_SIZE * aspectRatio);
-                    newHeight = MAX_THUMBNAIL_SIZE;
-                }
-            }
-            
-            yield return null; // 🚀 FRAME BREAK 3: Don't block during calculations
-            
-            try
-            {
-                if (needsResize)
-                {
-                    // Create resized texture
-                    finalTexture = new Texture2D(newWidth, newHeight, TextureFormat.RGBA32, false);
-                    
-                    // Simple resize using RenderTexture (more memory efficient than other methods)
-                    RenderTexture rt = RenderTexture.GetTemporary(newWidth, newHeight);
-                    Graphics.Blit(originalTexture, rt);
-                    RenderTexture previous = RenderTexture.active;
-                    RenderTexture.active = rt;
-                    finalTexture.ReadPixels(new Rect(0, 0, newWidth, newHeight), 0, 0);
-                    finalTexture.Apply();
-                    RenderTexture.active = previous;
-                    RenderTexture.ReleaseTemporary(rt);
-                    
-                    // Clean up original texture
-                    DestroyImmediate(originalTexture);
-                    
-                    Debug.Log($"[THUMBNAIL_OPT] ✅ Resized to {newWidth}x{newHeight}, estimated memory: {(newWidth * newHeight * 4 / 1024)}KB");
-                }
-                else
-                {
-                    finalTexture = originalTexture;
-                    Debug.Log($"[THUMBNAIL_OPT] ✅ Using original size {finalTexture.width}x{finalTexture.height}, estimated memory: {(finalTexture.width * finalTexture.height * 4 / 1024)}KB");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[THUMBNAIL_OPT] ❌ Error processing texture resize {thumbnailPath}: {ex.Message}");
-                if (originalTexture != null) DestroyImmediate(originalTexture);
-                if (finalTexture != null) DestroyImmediate(finalTexture);
-                yield break;
-            }
-            
-            yield return null; // 🚀 FRAME BREAK 4: Don't block before sprite creation
-            yield return null; // 🚀 EXTRA FRAME BREAK 4A
-            yield return null; // 🚀 EXTRA FRAME BREAK 4B
-            
-            // 🚀 FRAME 4: Create sprite and apply to UI
-            Sprite thumbnailSprite = null;
-            try
-            {
-                thumbnailSprite = Sprite.Create(finalTexture, 
-                    new Rect(0, 0, finalTexture.width, finalTexture.height), 
-                    new Vector2(0.5f, 0.5f));
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[THUMBNAIL_OPT] ❌ Error creating sprite {thumbnailPath}: {ex.Message}");
-                if (finalTexture != null) DestroyImmediate(finalTexture);
-            }
-            
-            yield return null; // 🚀 SPRITE CREATION FRAME BREAK
-            
-            // Apply sprite to UI if creation was successful
-            if (thumbnailSprite != null)
-            {
-                thumbnailImage.sprite = thumbnailSprite;
-                Debug.Log($"[THUMBNAIL_OPT] 🎉 Successfully loaded optimized thumbnail for {Path.GetFileName(thumbnailPath)}");
-            }
-            
-            yield return null; // 🚀 FINAL FRAME BREAK 1: Ensure smooth operation
-            yield return null; // 🚀 FINAL FRAME BREAK 2: Extra smooth
-            yield return null; // 🚀 FINAL FRAME BREAK 3: Ultra smooth
         }
 
         public int GetID() => id;
@@ -586,7 +720,7 @@ namespace HKCarouselLayoutGroup
                     }
                 }
                 
-                // If we get here, no Description line was found
+                // If we get here, no Description line found
                 Debug.LogWarning($"[Description] No Description line found in {fileName}.txt");
                 descriptionText.text = string.Empty;
             }
@@ -607,29 +741,41 @@ namespace HKCarouselLayoutGroup
         }
 
         /// <summary>
-        /// 🧹 MEMORY CLEANUP: Free thumbnail memory when element is destroyed
+        /// 🚀 OPTIMIZED CLEANUP: Clean up resources efficiently
         /// </summary>
         private void OnDestroy()
         {
-            CleanupThumbnail();
+            // Remove from collections
+            if (allElements.ContainsKey(id))
+            {
+                allElements.Remove(id);
+            }
+            
+            if (loadedThumbnails.Contains(id))
+            {
+                loadedThumbnails.Remove(id);
+            }
+            
+            // Clean up sprite
+            if (thumbnailImage != null && thumbnailImage.sprite != null)
+            {
+                DestroyImmediate(thumbnailImage.sprite);
+            }
         }
 
         /// <summary>
-        /// 🧹 MEMORY CLEANUP: Properly dispose of thumbnail textures to free memory
+        /// 🚀 CACHE CLEANUP: Clean up texture cache when needed
         /// </summary>
-        private void CleanupThumbnail()
+        public static void ClearTextureCache()
         {
-            if (thumbnailImage != null && thumbnailImage.sprite != null)
+            foreach (var texture in textureCache.Values)
             {
-                var texture = thumbnailImage.sprite.texture;
-                DestroyImmediate(thumbnailImage.sprite);
-                if (texture != null) 
+                if (texture != null)
                 {
                     DestroyImmediate(texture);
-                    Debug.Log("[THUMBNAIL_OPT] 🧹 Cleaned up thumbnail texture memory");
                 }
-                thumbnailImage.sprite = null;
             }
+            textureCache.Clear();
         }
     }
 }

@@ -167,6 +167,8 @@ public class MemoryGameManager : MonoBehaviour
             {
                 winCount++;
                 winPointsText.text = "Partite vinte: " + winCount.ToString();
+				if (numberOfCards < 11)
+					numberOfCards += 2;
                 Invoke(nameof(StartNewRound), 1f);
             }
         }
