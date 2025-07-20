@@ -1243,17 +1243,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 445091281}
-  m_LocalRotation: {x: 0.39887917, y: -0, z: -0, w: 0.9170035}
-  m_LocalPosition: {x: 0, y: 0, z: -0.46}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 5.73}
   m_LocalScale: {x: 0.015, y: 0.015, z: 0.015}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 473331700}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 47.016, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 13.41}
+  m_AnchoredPosition: {x: 0, y: 20.01}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &470385079
@@ -2922,7 +2922,7 @@ Transform:
   m_GameObject: {fileID: 1188324189}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 19.5, z: 1.81}
+  m_LocalPosition: {x: 0, y: 20, z: 1.81}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2992,11 +2992,6 @@ MonoBehaviour:
     sceneIndex: 4
     thumbnailPath: Scene Thumbnails/Memory Thumbnail
     description: rimani dove sei e continua a metterti alla prova
-  - sceneName: Meditazioni
-    sceneIndex: 2
-    thumbnailPath: Scene Thumbnails/Meditazione Thumbnail
-    description: Scopri un percorso guidato nella meditazione tra video, immagini
-      ed audio immersivi
   _enableSnapping: 1
   _snapSpeed: 15
   _smoothClamp: 1
@@ -3803,7 +3798,7 @@ MonoBehaviour:
   - {fileID: 3857417499918066866, guid: 93d241b44806dac4792894396b4c53f6, type: 3}
   numberOfCards: 7
   centerPoint: {fileID: 1188324190}
-  radius: 3
+  radius: 2.5
   pointsText: {fileID: 685112130}
   winPointsText: {fileID: 1639709559}
   correctSound: {fileID: 8300000, guid: 01c14383aeceffe4797fee0ec0d7e62b, type: 3}
@@ -3914,7 +3909,7 @@ Transform:
   m_GameObject: {fileID: 1514282643}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 19.5, z: 0}
+  m_LocalPosition: {x: 0, y: 20, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -5031,7 +5026,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -6.6
+      value: -0.9
       objectReference: {fileID: 0}
     - target: {fileID: 8298045291338814965, guid: e4f332aea9a46b34bab01d9d6d17f588, type: 3}
       propertyPath: m_LocalRotation.w

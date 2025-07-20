@@ -5,6 +5,7 @@ using HKCarouselLayoutGroup;
 using UnityEngine.UI;
 using System.IO;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class CarouselManager : MonoBehaviour
 {
@@ -128,13 +129,16 @@ public class CarouselManager : MonoBehaviour
 
     private bool HasContent()
     {
-        // NEW: Check for metadata files in Data/ folder instead of media files
-        string dataPath = Path.Combine(Application.persistentDataPath, "Data");
-        Debug.Log($"[CarouselManager] Checking for content in: {dataPath}");
+        // Get current scene name for scene-aware content checking
+        string activeSceneName = SceneManager.GetActiveScene().name;
+        
+        // Check for metadata files in scene-specific Data/ folder
+        string dataPath = Path.Combine(Application.persistentDataPath, activeSceneName, "Data");
+        Debug.Log($"[CarouselManager] Checking for scene-aware content in: {dataPath}");
         
         if (!Directory.Exists(dataPath))
         {
-            Debug.Log($"[CarouselManager] Data directory does not exist");
+            Debug.Log($"[CarouselManager] Scene-specific data directory does not exist for scene: {activeSceneName}");
             return false;
         }
 
@@ -149,7 +153,7 @@ public class CarouselManager : MonoBehaviour
                 })
                 .ToArray();
                 
-            Debug.Log($"[CarouselManager] Category {category}: found {txtFiles.Length} metadata files");
+            Debug.Log($"[CarouselManager] Scene '{activeSceneName}' - Category {category}: found {txtFiles.Length} metadata files");
             
             if (txtFiles.Length > 0)
             {
@@ -157,7 +161,7 @@ public class CarouselManager : MonoBehaviour
             }
         }
         
-        Debug.Log($"[CarouselManager] No metadata content found");
+        Debug.Log($"[CarouselManager] No metadata content found for scene: {activeSceneName}");
         return false;
     }
 

@@ -12,14 +12,23 @@ EditorBuildSettings:
     path: Assets/Scenes/Home.unity
     guid: 4e9fef26e6adb88479ad1b9834a32d94
   - enabled: 1
-    path: Assets/Scenes/Meditazione.unity
+    path: Assets/Scenes/Categorie/Meditazioni.unity
     guid: 13ea45d8c574f0645ba0fcd8c982534c
   - enabled: 1
-    path: Assets/Experiences/Paint/Paint.unity
-    guid: 53c8c98e771e6a341bae64ffc9890643
+    path: Assets/Scenes/Categorie/Orizzonti Naturali.unity
+    guid: 8bf2cd736a3f24942a2d7c54e5f37e2b
+  - enabled: 1
+    path: Assets/Scenes/Categorie/Allenamento Cognitivo.unity
+    guid: 4112416ab594ae046afb6b8c0ccd2e34
+  - enabled: 1
+    path: Assets/Scenes/Categorie/Sentieri Letterali.unity
+    guid: 91862c94332b7b344859b4f01bb916bb
   - enabled: 1
     path: Assets/Experiences/Memory/Memory.unity
     guid: 3b38a78636151804bbe9186ac6c40a9a
+  - enabled: 0
+    path: Assets/Experiences/Paint/Paint.unity
+    guid: 53c8c98e771e6a341bae64ffc9890643
   - enabled: 0
     path: Assets/Scenes/MemoryPastrough.unity
     guid: b69c6defac3726048b0845cadb9d5510
