@@ -6,6 +6,8 @@ using System.Collections.Generic;
 public class CheckHitbox : MonoBehaviour
 {
     private MemoryGameManager gameManager;
+	
+	public GameObject glowEffect;
     
     [Header("Haptic Feedback Settings")]
     [Tooltip("Haptic intensity for card collision (0.0 to 1.0)")]
@@ -27,6 +29,7 @@ public class CheckHitbox : MonoBehaviour
     void Start()
     {
         GameObject gameManagerObject = GameObject.FindGameObjectWithTag("GameManager");
+		glowEffect.SetActive(false);
         if (gameManagerObject != null)
         {
             gameManager = gameManagerObject.GetComponent<MemoryGameManager>();
@@ -55,6 +58,7 @@ public class CheckHitbox : MonoBehaviour
             if (!this.gameObject.GetComponent<MemoryCard>().IsPermanentlyRevealed)
             {
                 gameManager.CardSelected(this.gameObject);
+				glowEffect.SetActive(true);
             }
             else
             {
